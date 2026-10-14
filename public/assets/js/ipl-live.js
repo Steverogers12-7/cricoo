@@ -24,7 +24,7 @@
   'use strict';
 
   /* ---------- config ---------- */
-  var API_BASE = 'http://127.0.0.1:5000';            // '' = demo mode. Later: 'https://your-api.onrender.com'
+  var API_BASE = '';            // '' = demo mode. Later: 'https://your-api.onrender.com'
   var POLL_MS = 60000;          // live polling (backend itself refreshes about once per over)
   var DEMO_STEP_MS = 1200;
 
