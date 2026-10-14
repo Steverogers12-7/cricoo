@@ -65,3 +65,23 @@ def health():
     h.update({"model": os.path.basename(engine.model_path), "early_add": engine.early_add, "early_overs": engine.early_balls // 6,
               "bands_loaded": engine.bands is not None})
     return jsonify(h)
+
+
+@app.get("/debug/upcoming")
+def debug_upcoming():
+    """Diagnostics (costs 1 API call per hit): what the server sees from upcomingMatches and how the filters treat it."""
+    import api_client as A
+    now = datetime.now(IST)
+    out = {"now_ist": now.strftime("%Y-%m-%d %H:%M"), "filters": {"SERIES_FILTER": A.SERIES_FILTER, "MATCH_TYPE": A.MATCH_TYPE, "EXCLUDE_SERIES": A.EXCLUDE_SERIES},
+           "poller_sched_day": poller.sched_day, "poller_sched_len": len(poller.sched), "poller_last_error": poller.last_error}
+    try:
+        ms = A.parse_upcoming(poller.c._call("upcoming"))
+        day = now.strftime("%Y-%m-%d")
+        today = [m for m in ms if m["start"].astimezone(IST).strftime("%Y-%m-%d") == day]
+        out.update({"parsed_count": len(ms), "today_all": [(m["match_id"], m["team_a"], m["team_b"], m["series"], m["match_type"], m["start"].strftime("%H:%M")) for m in today],
+                    "today_after_filter": [(m["team_a"], m["team_b"]) for m in today if A.SERIES_FILTER.lower() in m["series"].lower()
+                                           and (not A.MATCH_TYPE or str(m["match_type"]).upper() == A.MATCH_TYPE.upper())
+                                           and not any(x in m["series"].lower() for x in A.EXCLUDE_SERIES)]})
+    except Exception as e:
+        out["error"] = repr(e)
+    return jsonify(out)
