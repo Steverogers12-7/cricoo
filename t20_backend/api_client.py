@@ -266,13 +266,24 @@ class ApiClient:
         ms = parse_upcoming(self._call("upcoming"))
         try:                                                 # matches that already started are dropped from upcoming
             live = parse_live(self._call("live_list"))
-        except (NoData, requests.RequestException, RuntimeError):
+        except (NoData, requests.RequestException, RuntimeError) as e:
+            print(f"[api] liveMatches failed: {e!r}", flush=True)
             live = []                                        # QuotaExceeded is not caught on purpose
+        print(f"[api] upcoming={len(ms)} live={len(live)} live_ids={[m['match_id'] for m in live]}", flush=True)
         seen = {m["match_id"] for m in ms}
         ms += [m for m in live if m["match_id"] not in seen]
-        return [m for m in ms if SERIES_FILTER.lower() in m["series"].lower() and not m["team_a"].startswith("TBC")
-                and (not MATCH_TYPE or str(m.get("match_type", "")).upper() == MATCH_TYPE.upper())
-                and not any(x in m["series"].lower() for x in EXCLUDE_SERIES)]
+        out = [m for m in ms if SERIES_FILTER.lower() in m["series"].lower() and not m["team_a"].startswith("TBC")
+               and (not MATCH_TYPE or str(m.get("match_type", "")).upper() == MATCH_TYPE.upper())
+               and not any(x in m["series"].lower() for x in EXCLUDE_SERIES)]
+        # manual override: set env FORCE_MATCH_ID (+ optional FORCE_START "19:00", FORCE_TEAMS "IND,WI")
+        fid = os.getenv("FORCE_MATCH_ID", "").strip()
+        if fid and fid not in {m["match_id"] for m in out}:
+            hh, mm = (os.getenv("FORCE_START", "19:00").split(":") + ["0"])[:2]
+            ta, tb = (os.getenv("FORCE_TEAMS", "A,B").split(",") + ["B"])[:2]
+            start = datetime.now(IST).replace(hour=int(hh), minute=int(mm), second=0, microsecond=0)
+            out.append({"match_id": fid, "start": start, "team_a": ta.strip(), "team_b": tb.strip(),
+                        "series": "forced", "venue": "", "match_type": ""})
+        return out
 
     def prepare(self, match_id, start=None):
         """None until BOTH the playing XIs and the toss are out (XI first: 1 call while waiting)."""
