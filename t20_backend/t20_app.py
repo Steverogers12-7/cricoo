@@ -43,7 +43,31 @@ else:
     from api_client import ApiClient
     poller = Poller(ApiClient(quota), tracker, quota)
 
-threading.Thread(target=poller.run_forever, daemon=True).start()
+# ---- poller thread + watchdog: if the thread is missing or dead it is (re)started, on import and on every request
+_poller_thread = None
+_poller_lock = threading.Lock()
+
+
+def poller_alive():
+    return _poller_thread is not None and _poller_thread.is_alive()
+
+
+def ensure_poller():
+    global _poller_thread
+    if poller_alive():
+        return
+    with _poller_lock:
+        if not poller_alive():
+            _poller_thread = threading.Thread(target=poller.run_forever, daemon=True, name="poller")
+            _poller_thread.start()
+
+
+ensure_poller()
+
+
+@app.before_request
+def _poller_guard():
+    ensure_poller()
 
 
 @app.after_request
@@ -63,7 +87,7 @@ def live():
 def health():
     h = poller.health()
     h.update({"model": os.path.basename(engine.model_path), "early_add": engine.early_add, "early_overs": engine.early_balls // 6,
-              "bands_loaded": engine.bands is not None})
+              "bands_loaded": engine.bands is not None, "poller_alive": poller_alive()})
     return jsonify(h)
 
 
@@ -101,4 +125,4 @@ def debug_tick():
     return jsonify({"error": err, "sched_day": poller.sched_day, "sched": [(m["team_a"], m["team_b"], m["start"].strftime("%H:%M")) for m in poller.sched],
                     "wake": str(poller.wake), "cur": (poller.cur or {}).get("id"), "state_status": poller.get_state().get("status"),
                     "state_next": poller.get_state().get("next"), "last_error": poller.last_error, "quota_remaining": quota.remaining(),
-                    "threads": [t.name for t in threading.enumerate()]})
+                    "poller_alive": poller_alive(), "threads": [t.name for t in threading.enumerate()]})

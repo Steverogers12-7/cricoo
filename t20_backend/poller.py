@@ -59,9 +59,20 @@ class Poller:
                 "schedule_today": [(m["team_a"], m["team_b"], m["start"].strftime("%H:%M")) for m in self.sched]}
 
     def run_forever(self):
-        while True:
-            wake = self.tick()
-            time.sleep(max(1.0, min(30.0, (wake - self.clock()).total_seconds())))
+        """Never lets the thread die from a stray exception: any error is logged and the loop carries on.
+        If the thread ever does exit, that is logged too (so it shows up in the Render logs)."""
+        print("[poller] thread started", flush=True)
+        try:
+            while True:
+                try:
+                    wake = self.tick()
+                    time.sleep(max(1.0, min(30.0, (wake - self.clock()).total_seconds())))
+                except Exception as e:
+                    self.last_error, self.stale = f"run_forever: {e!r}", True
+                    traceback.print_exc()
+                    time.sleep(5)
+        finally:
+            print("[poller] thread exiting", flush=True)
 
     # ---------------------------------------------------------------- one scheduling step
     def tick(self):
