@@ -1,0 +1,185 @@
+/* ipl.css  -  styles for ipl.html (live strip + model panel).
+   Template classes (bg-dark, container, text-light...) are reused; only new parts live here. */
+
+:root {
+  --ipl-mint: #2fe3a5;
+  --ipl-navy: #0e1626;
+  --ipl-navy-2: #172238;
+  --ipl-navy-3: #1d2b45;
+  --ipl-line: rgba(255, 255, 255, .10);
+  --ipl-muted: #9aa7bd;
+  --ipl-red: #ff6b6b;
+  --ipl-amber: #ffc857;
+}
+
+.ipl-hero,
+.ipl-model-sec { font-variant-numeric: tabular-nums; }
+
+/* ---------- hero / live strip ---------- */
+.ipl-hero {
+  padding-top: 6.25rem; padding-bottom: 1.5rem;
+  background-image: radial-gradient(900px 340px at 85% 0%, rgba(47, 227, 165, .13), transparent 70%),
+                    radial-gradient(700px 300px at 0% 100%, rgba(80, 120, 255, .10), transparent 70%);
+}
+.ipl-eyebrow { color: var(--ipl-muted); font-size: .85rem; letter-spacing: .06em; text-transform: uppercase; margin: 0; }
+.ipl-topbar { margin-bottom: .9rem; }
+
+.ipl-status {
+  display: inline-flex; align-items: center; padding: .38rem .9rem; border-radius: 999px;
+  font-size: .74rem; font-weight: 700; letter-spacing: .08em;
+  background: var(--ipl-navy-2); color: #fff; border: 1px solid var(--ipl-line);
+}
+.ipl-status.is-live { background: rgba(255, 107, 107, .14); color: var(--ipl-red); border-color: rgba(255, 107, 107, .5); }
+.ipl-status.is-live::before { content: ""; width: .5rem; height: .5rem; margin-right: .5rem; border-radius: 50%; background: var(--ipl-red); animation: iplPulse 1.4s infinite; }
+.ipl-status.is-done { background: rgba(47, 227, 165, .12); color: var(--ipl-mint); border-color: rgba(47, 227, 165, .5); }
+.ipl-demo-badge { font-size: .7rem; font-weight: 700; letter-spacing: .06em; padding: .3rem .65rem; border-radius: 6px; background: var(--ipl-amber); color: #222; }
+@keyframes iplPulse { 0%, 100% { opacity: 1 } 50% { opacity: .25 } }
+
+.ipl-score-card {
+  background: linear-gradient(180deg, var(--ipl-navy-2), #131e33);
+  border: 1px solid var(--ipl-line); border-radius: 20px; padding: 1.1rem 1.25rem;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, .28);
+}
+
+/* team rows: badge + name + score; the soft fill = how far through its 20 overs */
+.ipl-team {
+  --p: 0%;
+  position: relative; display: flex; align-items: center; gap: 1rem;
+  padding: .6rem 1rem; border-radius: 14px; color: #fff;
+  background: linear-gradient(90deg, rgba(255, 255, 255, .07) var(--p), rgba(255, 255, 255, .025) var(--p));
+  border: 1px solid transparent;
+}
+.ipl-team.is-batting { border-color: rgba(47, 227, 165, .55); background: linear-gradient(90deg, rgba(47, 227, 165, .16) var(--p), rgba(47, 227, 165, .04) var(--p)); }
+.ipl-badge {
+  flex: none; width: 46px; height: 46px; border-radius: 50%;
+  display: grid; place-items: center; font-weight: 800; font-size: .8rem; letter-spacing: .02em;
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, .22);
+}
+.ipl-team .nm { flex: 1 1 auto; min-width: 0; font-weight: 700; font-size: 1.1rem; line-height: 1.15; }
+.ipl-team .nm small { display: block; font-weight: 400; color: var(--ipl-muted); font-size: .76rem; margin-top: .15rem; }
+.ipl-team .sc { flex: none; font-weight: 800; font-size: 1.75rem; text-align: right; line-height: 1.05; }
+.ipl-team .sc small { display: block; font-weight: 500; color: var(--ipl-muted); font-size: .76rem; }
+.ipl-bat { display: inline-block; width: .5rem; height: .5rem; border-radius: 50%; background: var(--ipl-mint); margin-left: .45rem; vertical-align: middle; animation: iplPulse 1.4s infinite; }
+
+.ipl-line { color: #fff; font-size: 1.15rem; font-weight: 700; margin: 0 0 .6rem; }
+
+/* win-probability strip (innings 2) */
+.ipl-sw { margin: 0 0 .75rem; }
+.ipl-sw .top { display: flex; justify-content: space-between; font-size: .8rem; color: var(--ipl-muted); margin-bottom: .35rem; }
+.ipl-sw .top b { color: #fff; }
+.ipl-sw .bar { display: flex; height: 8px; border-radius: 99px; overflow: hidden; background: #3a4a68; }
+.ipl-sw .bar i { display: block; background: var(--ipl-mint); transition: width .6s ease; }
+
+.ipl-chips { display: flex; flex-wrap: wrap; gap: .5rem; }
+.ipl-chip { background: rgba(255, 255, 255, .05); border: 1px solid var(--ipl-line); border-radius: 10px; padding: .4rem .75rem; color: var(--ipl-muted); font-size: .82rem; }
+.ipl-chip b { color: #fff; font-weight: 700; margin-left: .2rem; }
+.ipl-chip b.m { color: var(--ipl-mint); }
+.ipl-sub { color: var(--ipl-muted); font-size: .8rem; }
+
+/* overs carousel */
+.ipl-ovwrap { display: flex; align-items: stretch; gap: .5rem; margin-top: .9rem; }
+.ipl-ovnav { flex: none; width: 2rem; border: 1px solid var(--ipl-line); background: rgba(255, 255, 255, .06); color: #fff; border-radius: 10px; font-size: 1.4rem; line-height: 1; cursor: pointer; }
+.ipl-ovnav:hover:not(:disabled) { background: rgba(255, 255, 255, .14); }
+.ipl-ovnav:disabled { opacity: .3; cursor: default; }
+.ipl-overs { flex: 1 1 auto; min-width: 0; display: flex; gap: .4rem; overflow-x: auto; scrollbar-width: none; scroll-snap-type: x proximity; }
+.ipl-overs::-webkit-scrollbar { display: none; }
+.ipl-over { flex: 0 0 calc((100% - 1.6rem) / 5); scroll-snap-align: end; text-align: center; padding: .45rem .25rem; border-radius: 10px; background: rgba(255, 255, 255, .05); border: 1px solid var(--ipl-line); color: #fff; font-weight: 700; font-size: 1rem; line-height: 1.15; cursor: pointer; font-family: inherit; }
+.ipl-over small { display: block; font-weight: 500; color: var(--ipl-muted); font-size: .66rem; }
+.ipl-over:hover { background: rgba(255, 255, 255, .1); }
+.ipl-over.is-big { border-color: rgba(47, 227, 165, .6); color: var(--ipl-mint); }
+.ipl-over.has-w { border-color: var(--ipl-red); background: rgba(255, 107, 107, .1); }
+.ipl-over.has-w::after { content: "W"; color: var(--ipl-red); font-size: .66rem; font-weight: 800; margin-left: .2rem; }
+.ipl-over.is-sel { background: var(--ipl-mint); border-color: var(--ipl-mint); color: #07281d; }
+.ipl-over.is-sel small, .ipl-over.is-sel::after { color: #07281d; }
+
+.ipl-ovdetail:empty { display: none; }
+.ipl-ovdetail { margin-top: .6rem; padding: .65rem .85rem; border-radius: 12px; background: rgba(255, 255, 255, .05); border: 1px solid var(--ipl-line); }
+.ipl-ovdetail .top { display: flex; justify-content: space-between; gap: .75rem; font-size: .82rem; color: var(--ipl-muted); margin-bottom: .5rem; }
+.ipl-ovdetail .top b { color: #fff; }
+.ipl-balls { display: flex; flex-wrap: wrap; gap: .4rem; }
+.ipl-ball { min-width: 2.1rem; height: 2.1rem; padding: 0 .35rem; border-radius: 999px; display: inline-grid; place-items: center; font-weight: 800; font-size: .82rem; background: rgba(255, 255, 255, .1); color: #fff; }
+.ipl-ball.d { color: var(--ipl-muted); }
+.ipl-ball.f { background: rgba(47, 227, 165, .2); color: var(--ipl-mint); box-shadow: inset 0 0 0 1.5px var(--ipl-mint); }
+.ipl-ball.s { background: var(--ipl-mint); color: #07281d; }
+.ipl-ball.w { background: var(--ipl-red); color: #fff; }
+.ipl-ball.x { background: rgba(255, 200, 87, .16); color: var(--ipl-amber); box-shadow: inset 0 0 0 1.5px var(--ipl-amber); font-size: .74rem; }
+
+.ipl-empty-live { text-align: center; padding: 2.5rem 1rem; color: #fff; }
+.ipl-empty-live h3 { color: #fff; font-size: 1.3rem; margin-bottom: .4rem; }
+.ipl-empty-live p { color: var(--ipl-muted); margin: 0; }
+
+/* ---------- model panel (one card, tabs inside) ---------- */
+.ipl-model-sec { background: #f4f6fb; padding-top: 1.5rem; padding-bottom: 2.5rem; }
+.ipl-model { background: var(--ipl-navy); border-radius: 22px; padding: 1.25rem 1.5rem 1.5rem; color: #fff; box-shadow: 0 22px 50px rgba(14, 22, 38, .22); }
+.ipl-model-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 1rem; margin-bottom: .9rem; }
+.ipl-model-head h2 { color: #fff; font-size: 1.35rem; margin: 0; }
+
+.ipl-tabs { display: inline-flex; gap: .25rem; padding: .3rem; border-radius: 14px; background: rgba(255, 255, 255, .06); max-width: 100%; overflow-x: auto; }
+.ipl-tab { border: 0; background: transparent; color: var(--ipl-muted); border-radius: 10px; padding: .55rem 1.1rem; font-weight: 600; font-size: .88rem; cursor: pointer; white-space: nowrap; transition: background .2s, color .2s; }
+.ipl-tab:hover:not(:disabled):not(.is-active) { color: #fff; }
+.ipl-tab.is-active { background: var(--ipl-mint); color: #07281d; }
+.ipl-tab:focus-visible { outline: 2px solid var(--ipl-mint); outline-offset: 2px; }
+.ipl-tab:disabled { opacity: .35; cursor: not-allowed; }
+
+.ipl-panel { min-height: 14rem; }
+.ipl-pane { display: none; }
+.ipl-pane.is-active { display: block; }
+.ipl-pane h3 { color: #fff; font-size: 1rem; margin-bottom: .15rem; }
+.ipl-empty { color: var(--ipl-muted); padding: 3.5rem 1rem; text-align: center; }
+
+.ipl-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: .75rem; margin: .75rem 0 .9rem; }
+.ipl-kpi { background: var(--ipl-navy-2); border: 1px solid var(--ipl-line); border-radius: 14px; padding: .6rem 1rem; }
+.ipl-kpis-2 { grid-template-columns: repeat(2, 1fr); }
+.ipl-kpi .l { color: var(--ipl-muted); font-size: .76rem; }
+.ipl-kpi .v { font-size: 1.6rem; font-weight: 800; line-height: 1.2; }
+.ipl-kpi .v.mint, .ipl-kpi .v.up { color: var(--ipl-mint); }
+.ipl-kpi .v.down { color: var(--ipl-red); }
+.ipl-kpi .n { color: var(--ipl-muted); font-size: .72rem; }
+
+.ipl-xi { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+@media (max-width: 767px) { .ipl-xi { grid-template-columns: 1fr; } }
+.ipl-xi > div { background: var(--ipl-navy-2); border: 1px solid var(--ipl-line); border-radius: 14px; padding: .8rem 1.1rem; }
+.ipl-xi h3 { display: flex; align-items: center; gap: .6rem; margin: 0 0 .6rem; }
+.ipl-xi .ipl-badge { width: 30px; height: 30px; font-size: .62rem; }
+.ipl-xi ol { margin: 0; padding: 0; list-style: none; counter-reset: pl; color: #e4eaf5; font-size: .92rem; }
+.ipl-xi li { counter-increment: pl; padding: .24rem 0; border-top: 1px solid var(--ipl-line); }
+.ipl-xi li::before { content: counter(pl); display: inline-block; width: 1.5rem; color: var(--ipl-muted); font-size: .76rem; }
+
+.ipl-range { position: relative; height: 10px; border-radius: 99px; background: var(--ipl-navy-3); margin: .8rem 0 .3rem; }
+.ipl-range i { position: absolute; top: 0; bottom: 0; border-radius: 99px; background: rgba(47, 227, 165, .35); }
+.ipl-range b { position: absolute; top: -5px; width: 4px; height: 20px; background: var(--ipl-mint); border-radius: 2px; }
+
+.ipl-chart { width: 100%; height: auto; display: block; }
+.ipl-chart text { fill: var(--ipl-muted); font-size: 11px; font-family: inherit; }
+.ipl-legend { display: flex; flex-wrap: wrap; gap: 1rem; font-size: .78rem; color: var(--ipl-muted); margin-top: .3rem; }
+.ipl-legend span::before { content: ""; display: inline-block; width: 18px; height: 3px; margin-right: .4rem; vertical-align: middle; background: var(--c); }
+.ipl-legend span.dash::before { background: repeating-linear-gradient(90deg, var(--c) 0 5px, transparent 5px 9px); }
+
+.ipl-report { margin-top: .75rem; padding: .95rem 1.1rem; border-radius: 14px; border: 1px solid rgba(47, 227, 165, .5); background: rgba(47, 227, 165, .08); font-size: .92rem; }
+
+.ipl-win { display: flex; height: 34px; border-radius: 12px; overflow: hidden; margin: .6rem 0 .25rem; font-weight: 700; font-size: .9rem; }
+.ipl-win div { display: flex; align-items: center; padding: 0 .9rem; transition: width .6s ease; white-space: nowrap; overflow: hidden; }
+.ipl-win .a { background: var(--ipl-mint); color: #07281d; }
+.ipl-win .b { background: #3a4a68; color: #fff; justify-content: flex-end; }
+
+.ipl-disclaimer { color: #6b7790; font-size: .8rem; margin: 1rem .25rem 0; }
+
+/* ---------- demo bar (testing only) ---------- */
+.ipl-demo { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; margin-top: 1rem; padding: .65rem 1rem; border: 1px dashed #b9c2d3; border-radius: 12px; background: #fff; font-size: .85rem; color: #333; }
+.ipl-demo-title { font-weight: 700; margin-right: .5rem; }
+.ipl-demo button, .ipl-demo select { border: 1px solid #c7ced9; background: #fff; color: #222; border-radius: 8px; padding: .3rem .7rem; font-size: .85rem; cursor: pointer; }
+.ipl-demo .ipl-sub { color: #667; }
+
+@media (max-width: 575px) {
+  .ipl-over { flex-basis: calc((100% - 1.2rem) / 4); }
+  .ipl-hero { padding-top: 6.5rem; }
+  .ipl-score-card, .ipl-model { padding: 1.1rem; }
+  .ipl-team .sc { font-size: 1.4rem; }
+  .ipl-badge { width: 40px; height: 40px; }
+  .ipl-tabs { width: 100%; }
+  .ipl-tab { flex: 1 1 0; padding: .55rem .5rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ipl-status.is-live::before, .ipl-bat { animation: none; }
+  .ipl-win div, .ipl-sw .bar i { transition: none; }
+}

@@ -1,0 +1,6 @@
+flask>=3.0
+gunicorn>=22.0
+requests>=2.31
+numpy>=1.26
+pandas>=2.0
+xgboost>=3.2     # inplay_t20_v2.pkl was saved with xgboost 3.2.0 (scikit-learn / lightgbm NOT needed for T20)

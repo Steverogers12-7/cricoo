@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en-US" dir="ltr">
+
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <title>T20 Live | cricoo</title>
+
+    <!-- Favicons -->
+    <link rel="apple-touch-icon" sizes="180x180" href="assets/img/favicons/apple-touch-icon.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="assets/img/favicons/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="assets/img/favicons/favicon-16x16.png">
+    <link rel="shortcut icon" type="image/x-icon" href="assets/img/favicons/favicon.ico">
+    <link rel="manifest" href="assets/img/favicons/manifest.json">
+    <meta name="msapplication-TileImage" content="assets/img/favicons/mstile-150x150.png">
+    <meta name="theme-color" content="#ffffff">
+
+    <!-- Stylesheets -->
+    <link rel="preconnect" href="https://fonts.gstatic.com">
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200;300;400;500;600;700&amp;display=swap" rel="stylesheet">
+    <link href="vendors/prism/prism.css" rel="stylesheet">
+    <link href="vendors/swiper/swiper-bundle.min.css" rel="stylesheet">
+    <link href="assets/css/theme.css" rel="stylesheet" />
+    <link href="assets/css/user.css" rel="stylesheet" />
+    <link href="assets/css/t_20.css" rel="stylesheet" />
+  </head>
+
+  <body>
+    <main class="main" id="top">
+
+      <!-- ============ NAVBAR ============ -->
+      <nav class="navbar navbar-expand-lg fixed-top navbar-dark" data-navbar-on-scroll="data-navbar-on-scroll">
+        <div class="container">
+          <a class="navbar-brand" href="index.html">
+            <img src="assets/img/cricoo-logo-2.png" style="height:35px;width:auto" alt="cricoo" />
+          </a>
+          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+            <i class="fa-solid fa-bars text-white fs-3"></i>
+          </button>
+          <div class="collapse navbar-collapse" id="navbarSupportedContent">
+            <ul class="navbar-nav ms-auto mt-2 mt-lg-0">
+              <li class="nav-item"><a class="nav-link" href="index.html">Home</a></li>
+              <li class="nav-item"><a class="nav-link" href="ipl.html">IPL</a></li>
+              <li class="nav-item"><a class="nav-link active" aria-current="page" href="t_20.html">T20</a></li>
+              <li class="nav-item"><a class="nav-link" href="#">Fixtures</a></li>
+              <li class="nav-item"><a class="nav-link" href="#">Ranking</a></li>
+              <li class="nav-item mt-2 mt-lg-0">
+                <a class="nav-link btn btn-light text-black w-md-25 w-50 w-lg-100" href="#model-panel">Prediction</a>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </nav>
+
+      <!-- ============ 1. LIVE MATCH STRIP ============ -->
+      <section class="bg-dark ipl-hero">
+        <div class="container">
+          <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 ipl-topbar">
+            <div>
+              <p class="ipl-eyebrow">T20 &middot; <span id="mVenue">Venue</span></p>
+            </div>
+            <div class="d-flex align-items-center gap-3">
+              <span id="mStatus" class="ipl-status">&nbsp;</span>
+            </div>
+          </div>
+
+          <div class="ipl-score-card" aria-live="polite">
+            <div id="mEmpty" class="ipl-empty-live d-none"></div>
+            <div class="row align-items-center g-4" id="mMain">
+              <div class="col-lg-5">
+                <div class="ipl-team" id="teamA"></div>
+                <div class="ipl-team mt-3" id="teamB"></div>
+              </div>
+              <div class="col-lg-7">
+                <p class="ipl-line" id="mLine">&nbsp;</p>
+                <div class="ipl-sw d-none" id="mWin"></div>
+                <div class="ipl-chips" id="mChips"></div>
+                <div class="ipl-ovwrap" id="ovWrap">
+                  <button type="button" class="ipl-ovnav" id="ovPrev" aria-label="Earlier overs">&#8249;</button>
+                  <div class="ipl-overs" id="mOvers"></div>
+                  <button type="button" class="ipl-ovnav" id="ovNext" aria-label="Later overs">&#8250;</button>
+                </div>
+                <div class="ipl-ovdetail" id="mOverDetail"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ 2. INPLAY MODEL MONITORING PANEL ============ -->
+      <section id="model-panel" class="ipl-model-sec">
+        <div class="container">
+          <div class="ipl-model">
+            <div class="ipl-model-head">
+              <div>
+                <p class="ipl-eyebrow">Cricoo Engine</p>
+                <h2>Inplay Model Monitoring</h2>
+              </div>
+              <div class="ipl-tabs" role="tablist" id="tabs">
+                <button class="ipl-tab active" role="tab" data-tab="inplay" id="tab-inplay">Inplay Model</button>
+              </div>
+            </div>
+
+            <div class="ipl-panel">
+              <div class="ipl-pane active" id="pane-inplay" role="tabpanel"></div>
+            </div>
+          </div>
+
+          <!-- DEMO CONTROLS -->
+          <div class="ipl-demo d-none" id="demoBar">
+            <span class="ipl-demo-title">Demo controls</span>
+            <button type="button" id="dPrev">&larr; Prev</button>
+            <button type="button" id="dPlay">Play</button>
+            <button type="button" id="dNext">Next &rarr;</button>
+            <select id="dJump" aria-label="Jump to stage">
+              <option value="0">Toss + playing XI</option>
+              <option value="10">Innings 1 &middot; over 10</option>
+              <option value="21">Innings break</option>
+              <option value="31">Innings 2 &middot; over 10</option>
+              <option value="42">Match finished</option>
+            </select>
+            <span id="dLabel" class="ipl-sub"></span>
+          </div>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- ============ FOOTER ============ -->
+    <section class="pt-0">
+      <div class="container">
+        <div class="row justify-content-between">
+          <div class="col-lg-6 col-sm-12">
+            <a href="index.html">
+              <img src="assets/img/footer-logo-icon.png" style="height:35px;width:auto" alt="cricoo" />
+            </a>
+            <p class="w-lg-75 text-gray">Empowering cricket fans and analysts with real-time, data-driven match insights and predictive models.</p>
+          </div>
+        </div>
+        <p class="text-gray">All rights reserved.</p>
+      </div>
+    </section>
+
+    <!-- JavaScripts -->
+    <script src="vendors/popper/popper.min.js"></script>
+    <script src="vendors/bootstrap/bootstrap.min.js"></script>
+    <script src="vendors/anchorjs/anchor.min.js"></script>
+    <script src="vendors/is/is.min.js"></script>
+    <script src="vendors/fontawesome/all.min.js"></script>
+    <script src="vendors/lodash/lodash.min.js"></script>
+    <script src="vendors/prism/prism.js"></script>
+    <script src="vendors/swiper/swiper-bundle.min.js"></script>
+    <script src="assets/js/theme.js"></script>
+    <script src="assets/js/t20-live.js"></script>
+  </body>
+
+</html>

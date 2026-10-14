@@ -1,0 +1,67 @@
+"""Flask entry point for the T20 (innings-1) in-play predictor.   gunicorn -w 1 --threads 4 -b 0.0.0.0:$PORT t20_app:app
+(ONE worker: one poller.  Do not run this and the IPL app.py at the same time on the SAME RapidAPI key - each keeps its own
+ daily call counter, so together they can go over the key's daily limit.)
+
+env: RAPID_KEY (or API_MODE=direct + API_TOKEN), T20_MODEL (path to inplay_t20_v2.pkl, default models/inplay_t20_v2.pkl),
+     EARLY_ADD (default 20: added to the projection before EARLY_OVERS overs), EARLY_OVERS (default 5),
+     ALLOWED_ORIGIN, DAILY_LIMIT (default 95), QUOTA_FILE, MODE=mock (+ MOCK_SPEED) for a fake match
+"""
+import os
+import threading
+import warnings
+from datetime import datetime, timedelta
+
+# the shared api_client reads these at import time: take every men's T20 (not only the IPL)
+os.environ.setdefault("SERIES_FILTER", "")
+os.environ.setdefault("MATCH_TYPE", "T20")
+os.environ.setdefault("EXCLUDE_SERIES", "women")
+
+from flask import Flask, jsonify
+
+warnings.filterwarnings("ignore")
+import poller as P
+from poller import Poller
+from quota import QuotaGuard, IST
+from t20_engine import T20Engine
+from t20_tracker import T20Tracker
+
+P.NONE_STATE["next"] = "Live scores and predictions appear here when the next T20 match starts."
+
+app = Flask(__name__)
+engine = T20Engine()
+quota = QuotaGuard(os.getenv("QUOTA_FILE", "quota.json"), int(os.getenv("DAILY_LIMIT", "95")))
+tracker = T20Tracker(engine)
+
+if os.getenv("MODE") == "mock":
+    from mock_client import MockClient
+    speed = float(os.getenv("MOCK_SPEED", "1"))
+    t0 = datetime.now(IST)
+    clock = lambda: t0 + (datetime.now(IST) - t0) * speed
+    client = MockClient(quota, clock, t0 + timedelta(minutes=2 * speed + 25))
+    poller = Poller(client, tracker, quota, clock=clock)
+else:
+    from api_client import ApiClient
+    poller = Poller(ApiClient(quota), tracker, quota)
+
+threading.Thread(target=poller.run_forever, daemon=True).start()
+
+
+@app.after_request
+def cors(r):
+    r.headers["Access-Control-Allow-Origin"] = os.getenv("ALLOWED_ORIGIN", "*")
+    return r
+
+
+@app.get("/api/t20/live")
+def live():
+    r = jsonify(poller.get_state())
+    r.headers["Cache-Control"] = "public, max-age=20"
+    return r
+
+
+@app.get("/health")
+def health():
+    h = poller.health()
+    h.update({"model": os.path.basename(engine.model_path), "early_add": engine.early_add, "early_overs": engine.early_balls // 6,
+              "bands_loaded": engine.bands is not None})
+    return jsonify(h)

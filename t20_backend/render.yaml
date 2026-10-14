@@ -1,0 +1,19 @@
+# Render Blueprint: New + > Blueprint > pick this repo/folder. Then only fill RAPID_KEY in the dashboard.
+services:
+  - type: web
+    name: cricoo-t20
+    runtime: python
+    plan: free
+    rootDir: t20_backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn -w 1 --threads 4 -b 0.0.0.0:$PORT t20_app:app
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.7
+      - key: RAPID_KEY
+        sync: false
+      - key: EARLY_ADD
+        value: "8"
+      - key: DAILY_LIMIT
+        value: "45"

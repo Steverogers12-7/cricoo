@@ -1,0 +1,7 @@
+flask>=3.0
+gunicorn>=22.0
+requests>=2.31
+numpy>=1.26
+pandas>=2.0
+scikit-learn==1.7.2     # the .pkl files were saved with 1.7.2; other versions warn and may differ
+lightgbm>=4.0
