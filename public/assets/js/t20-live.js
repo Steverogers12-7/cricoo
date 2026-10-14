@@ -5,7 +5,7 @@
 
   /* ---------- Configuration ---------- */
   // Empty API_BASE enables pure standalone Demo Mode.
-  var API_BASE = 'https://t20-live-score-api.onrender.com'; 
+  var API_BASE = ''; 
   var POLL_MS = 60000;
   var DEMO_STEP_MS = 1500;
 
