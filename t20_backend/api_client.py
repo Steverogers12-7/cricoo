@@ -42,7 +42,7 @@ DIRECT = {
 }
 RAPID = {   # from the RapidAPI "Code snippet" tabs ({id} = match id)
     "upcoming": ("GET", "/upcomingMatches"),
-    "live_list": ("GET", "/liveMatches"),            # not used by the backend
+    "live_list": ("GET", "/liveMatches"),            # used by upcoming() to pick up matches that already started
     "info": ("GET", "/match/{id}"),
     "playing11": ("GET", "/match/{id}/playingXI"),
     "scorecard": ("GET", "/match/{id}/scorecard"),
@@ -105,6 +105,20 @@ def parse_upcoming(js):
         try:
             day = m["date_wise"].split(",")[0].strip()                 # "13 Oct 2026, Tuesday" -> "13 Oct 2026"
             start = datetime.strptime(f'{day} {m["match_time"]}', "%d %b %Y %I:%M %p").replace(tzinfo=IST)
+        except Exception:
+            continue
+        out.append({"match_id": str(m["match_id"]), "start": start, "team_a": m["team_a_short"], "team_b": m["team_b_short"],
+                    "series": m.get("series", ""), "venue": m.get("venue", ""), "match_type": m.get("match_type", "")})
+    return out
+
+
+def parse_live(js):
+    """liveMatches -> same shape as parse_upcoming. Live items have match_date '14-Oct' (no year, no date_wise)."""
+    out, now = [], datetime.now(IST)
+    for m in js["data"]:
+        try:
+            start = datetime.strptime(f'{m["match_date"]}-{now.year} {m["match_time"]}',
+                                      "%d-%b-%Y %I:%M %p").replace(tzinfo=IST)
         except Exception:
             continue
         out.append({"match_id": str(m["match_id"]), "start": start, "team_a": m["team_a_short"], "team_b": m["team_b_short"],
@@ -250,6 +264,12 @@ class ApiClient:
 
     def upcoming(self):
         ms = parse_upcoming(self._call("upcoming"))
+        try:                                                 # matches that already started are dropped from upcoming
+            live = parse_live(self._call("live_list"))
+        except (NoData, requests.RequestException, RuntimeError):
+            live = []                                        # QuotaExceeded is not caught on purpose
+        seen = {m["match_id"] for m in ms}
+        ms += [m for m in live if m["match_id"] not in seen]
         return [m for m in ms if SERIES_FILTER.lower() in m["series"].lower() and not m["team_a"].startswith("TBC")
                 and (not MATCH_TYPE or str(m.get("match_type", "")).upper() == MATCH_TYPE.upper())
                 and not any(x in m["series"].lower() for x in EXCLUDE_SERIES)]
