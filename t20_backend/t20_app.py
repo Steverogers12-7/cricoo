@@ -85,3 +85,20 @@ def debug_upcoming():
     except Exception as e:
         out["error"] = repr(e)
     return jsonify(out)
+
+
+@app.get("/debug/tick")
+def debug_tick():
+    """Diagnostics (costs 1 API call): force the poller to re-read today's schedule right now and show the result / traceback."""
+    import traceback
+    err = None
+    poller.sched_day = None
+    poller.wake = poller.clock()
+    try:
+        poller._tick(poller.clock())
+    except Exception:
+        err = traceback.format_exc()
+    return jsonify({"error": err, "sched_day": poller.sched_day, "sched": [(m["team_a"], m["team_b"], m["start"].strftime("%H:%M")) for m in poller.sched],
+                    "wake": str(poller.wake), "cur": (poller.cur or {}).get("id"), "state_status": poller.get_state().get("status"),
+                    "state_next": poller.get_state().get("next"), "last_error": poller.last_error, "quota_remaining": quota.remaining(),
+                    "threads": [t.name for t in threading.enumerate()]})
