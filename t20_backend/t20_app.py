@@ -4,7 +4,8 @@
 
 env: RAPID_KEY (or API_MODE=direct + API_TOKEN), T20_MODEL (path to inplay_t20_v2.pkl, default models/inplay_t20_v2.pkl),
      EARLY_ADD (default 20: added to the projection before EARLY_OVERS overs), EARLY_OVERS (default 5),
-     ALLOWED_ORIGIN, DAILY_LIMIT (default 95), QUOTA_FILE, MODE=mock (+ MOCK_SPEED) for a fake match
+     ALLOWED_ORIGIN, DAILY_LIMIT (default 95), QUOTA_FILE, MODE=mock (+ MOCK_SPEED) for a fake match,
+     DEBUG_KEY (needed to open /debug/* ; without it those URLs return 404)
 """
 import os
 import threading
@@ -16,7 +17,7 @@ os.environ.setdefault("SERIES_FILTER", "")
 os.environ.setdefault("MATCH_TYPE", "T20")
 os.environ.setdefault("EXCLUDE_SERIES", "women")
 
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request, abort
 
 warnings.filterwarnings("ignore")
 import poller as P
@@ -87,13 +88,24 @@ def live():
 def health():
     h = poller.health()
     h.update({"model": os.path.basename(engine.model_path), "early_add": engine.early_add, "early_overs": engine.early_balls // 6,
-              "bands_loaded": engine.bands is not None, "poller_alive": poller_alive()})
+              "bands_loaded": engine.bands is not None, "poller_alive": poller_alive(),
+              "api_calls_this_run": getattr(poller.c, "calls", None)})
     return jsonify(h)
+
+
+# ---- debug endpoints cost API calls: closed unless DEBUG_KEY env is set and ?key=... matches
+DEBUG_KEY = os.getenv("DEBUG_KEY", "")
+
+
+def _need_key():
+    if not DEBUG_KEY or request.args.get("key") != DEBUG_KEY:
+        abort(404)
 
 
 @app.get("/debug/upcoming")
 def debug_upcoming():
     """Diagnostics (costs 1 API call per hit): what the server sees from upcomingMatches and how the filters treat it."""
+    _need_key()
     import api_client as A
     now = datetime.now(IST)
     out = {"now_ist": now.strftime("%Y-%m-%d %H:%M"), "filters": {"SERIES_FILTER": A.SERIES_FILTER, "MATCH_TYPE": A.MATCH_TYPE, "EXCLUDE_SERIES": A.EXCLUDE_SERIES},
@@ -113,7 +125,8 @@ def debug_upcoming():
 
 @app.get("/debug/tick")
 def debug_tick():
-    """Diagnostics (costs 1 API call): force the poller to re-read today's schedule right now and show the result / traceback."""
+    """Diagnostics (costs 1-2 API calls): force the poller to re-read today's schedule right now and show the result / traceback."""
+    _need_key()
     import traceback
     err = None
     poller.sched_day = None

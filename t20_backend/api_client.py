@@ -10,7 +10,6 @@ Interface used by the poller (everything else in the backend is API-agnostic):
     progress(match_id)  -> {"inn1": {"started","finished","entries","balls"}, "inn2": {...}, "done": bool, "result": str}
                            entries = [(legal_balls, cum_runs, cum_wkts), ...] one per completed over
 
-All parsers (playing XI, scorecard, upcoming, info, over history) are written from real responses of this API.
 Default mode is RapidAPI (host cricket-live-line1.p.rapidapi.com); set env RAPID_KEY.
 """
 import os
@@ -78,7 +77,7 @@ def clean_fow(fow):
     return out
 
 
-# ---------------------------------------------------------------- parsers (real, from your samples)
+# ---------------------------------------------------------------- parsers
 def parse_playing11(js):
     d = js["data"]
     return {k: {"name": d[k]["name"], "code": d[k]["short_name"],
@@ -97,9 +96,8 @@ def parse_scorecard(js):
     return out
 
 
-# ---------------------------------------------------------------- parsers: upcoming + info (real, from your samples)
 def parse_upcoming(js):
-    """upcomingMatches -> list of dicts. match_time is IST (checked: Sheffield Shield 05:00 = 10:30 Australian local)."""
+    """upcomingMatches -> list of dicts. match_time is IST."""
     out = []
     for m in js["data"]:
         try:
@@ -132,8 +130,7 @@ def _tok(s):
 
 def batting_first_from_toss(toss, a, b):
     """'Royal Challengers Bangalore have won the toss and have opted to bat' -> code of the team that bats first.
-    (The API spells the same team 'Bangalore' here and 'Bengaluru' in team_b, so teams are matched by word overlap.)
-    a, b = {"name","code"}.  Returns None if toss text is empty / not understood."""
+    Teams are matched by word overlap.  a, b = {"name","code"}.  Returns None if toss text is empty / not understood."""
     t = str(toss or "").lower().strip()
     m = re.search(r"^(.*?)\s+(?:have\s+|has\s+)?won the toss", t)
     d = re.search(r"(?:opted|chose|elected|decided|choose|elect|opt)\s+to\s+(bat|bowl|field)", t)
@@ -160,11 +157,10 @@ def parse_info(js):
             "series": d.get("series", ""), "result": d.get("result", ""), "match_status": d.get("match_status")}
 
 
-# ---------------------------------------------------------------- over history (real, from your SA vs AUS response)
-# data = {"1": [over, over, ...newest first], "2": [...], ...}   (a Test has 4 keys; a T20 has "1" and "2")
+# ---------------------------------------------------------------- over history
+# data = {"1": [over, over, ...newest first], "2": [...], ...}   (a T20 has "1" and "2")
 # over = {"team": {"score": "390-10" (cumulative AFTER this over), "team": "AUS", "bowler", "over": 138, "runs": 0, "wkts": 1},
-#         "overs": ["W", "0"]}     <- ball tokens of that over: "0","1","4","6","W", "WB"=wide, "NB"/"1NB"/"4NB"=no-ball,
-#                                     "1LB"/"4LB"=leg-byes, "4BYE"=byes.  Wides / no-balls are NOT legal deliveries.
+#         "overs": ["W", "0"]}     <- ball tokens of that over. Wides / no-balls are NOT legal deliveries.
 _NOT_LEGAL = re.compile(r"(WB|WD|NB)$", re.I)
 
 
@@ -173,7 +169,7 @@ def _legal(tokens):
 
 
 def _ball_token(t):
-    """API token -> token understood by ipl-live.js ("Wd", "Wd1", "Nb", "Nb4", "Lb1", "B4", "W", "0".."6")."""
+    """API token -> token understood by t20-live.js ("Wd", "Wd1", "Nb", "Nb4", "Lb1", "B4", "W", "0".."6")."""
     t = str(t).strip()
     m = re.fullmatch(r"(\d*)(?:WB|WD)", t, re.I)
     if m:
@@ -242,9 +238,13 @@ class ApiClient:
     def __init__(self, quota):
         self.quota = quota
         self.s = requests.Session()
+        self.calls = 0                                       # API calls made since this process started
+        self._info = {}                                      # match_id -> parsed info, once the toss is known
 
     def _call(self, name, match_id=None):
         self.quota.spend()                                   # raises QuotaExceeded when the daily limit is reached
+        self.calls += 1
+        print(f"[api] call #{self.calls}: {name} {match_id or ''} (quota left {self.quota.remaining()})", flush=True)
         if API_MODE == "rapidapi":
             method, path = RAPID[name]
             url = f"https://{RAPID_HOST}{path.format(id=match_id)}"
@@ -254,6 +254,11 @@ class ApiClient:
             url, headers = f"{API_BASE.rstrip('/')}/{path}/{API_TOKEN}", {}
             data = {"match_id": match_id} if match_id is not None else None
         r = self.s.request(method, url, data=data, headers=headers, timeout=20)
+        left = r.headers.get("x-ratelimit-requests-remaining")
+        if self.calls == 1:                                  # once: show which rate-limit headers RapidAPI sends
+            print("[api] ratelimit headers:", {k: v for k, v in r.headers.items() if "ratelimit" in k.lower()}, flush=True)
+        if left is not None:
+            self.quota.sync(left)
         r.raise_for_status()
         js = r.json()
         if not js.get("status", True):
@@ -262,19 +267,29 @@ class ApiClient:
             raise RuntimeError(f"{name}: {js.get('msg')}")
         return js
 
+    @staticmethod
+    def _keep(m):
+        return (SERIES_FILTER.lower() in m["series"].lower() and not m["team_a"].startswith("TBC")
+                and (not MATCH_TYPE or str(m.get("match_type", "")).upper() == MATCH_TYPE.upper())
+                and not any(x in m["series"].lower() for x in EXCLUDE_SERIES))
+
     def upcoming(self):
+        """1 call normally. liveMatches (2nd call) is only fetched when today's match is NOT in upcoming
+        (i.e. it already started, e.g. after a restart mid-match). LIVE_ALWAYS=1 forces it (double-headers)."""
         ms = parse_upcoming(self._call("upcoming"))
-        try:                                                 # matches that already started are dropped from upcoming
-            live = parse_live(self._call("live_list"))
-        except (NoData, requests.RequestException, RuntimeError) as e:
-            print(f"[api] liveMatches failed: {e!r}", flush=True)
-            live = []                                        # QuotaExceeded is not caught on purpose
-        print(f"[api] upcoming={len(ms)} live={len(live)} live_ids={[m['match_id'] for m in live]}", flush=True)
-        seen = {m["match_id"] for m in ms}
-        ms += [m for m in live if m["match_id"] not in seen]
-        out = [m for m in ms if SERIES_FILTER.lower() in m["series"].lower() and not m["team_a"].startswith("TBC")
-               and (not MATCH_TYPE or str(m.get("match_type", "")).upper() == MATCH_TYPE.upper())
-               and not any(x in m["series"].lower() for x in EXCLUDE_SERIES)]
+        out = [m for m in ms if self._keep(m)]
+        today = datetime.now(IST).strftime("%Y-%m-%d")
+        has_today = any(m["start"].astimezone(IST).strftime("%Y-%m-%d") == today for m in out)
+        live = []
+        if not has_today or os.getenv("LIVE_ALWAYS") == "1":
+            try:
+                live = parse_live(self._call("live_list"))
+            except (NoData, requests.RequestException, RuntimeError) as e:
+                print(f"[api] liveMatches failed: {e!r}", flush=True)
+                live = []                                    # QuotaExceeded is not caught on purpose
+            seen = {m["match_id"] for m in ms}
+            out += [m for m in live if m["match_id"] not in seen and self._keep(m)]
+        print(f"[api] upcoming={len(ms)} kept={len(out)} live={len(live)}", flush=True)
         # manual override: set env FORCE_MATCH_ID (+ optional FORCE_START "19:00", FORCE_TEAMS "IND,WI")
         fid = os.getenv("FORCE_MATCH_ID", "").strip()
         if fid and fid not in {m["match_id"] for m in out}:
@@ -286,7 +301,17 @@ class ApiClient:
         return out
 
     def prepare(self, match_id, start=None):
-        """None until BOTH the playing XIs and the toss are out (XI first: 1 call while waiting)."""
+        """None until BOTH toss and playing XIs are out. Toss (info) is checked first: 1 call per attempt while
+        waiting; once the toss is known it is cached, so later attempts cost only the XI call."""
+        info = self._info.get(match_id)
+        if info is None:
+            try:
+                info = parse_info(self._call("info", match_id))
+            except NoData:
+                return None
+            if not info["batting_first"]:                    # toss not announced / text not understood
+                return None
+            self._info[match_id] = info
         try:
             xi = parse_playing11(self._call("playing11", match_id))
         except NoData:
@@ -294,13 +319,7 @@ class ApiClient:
         ta, tb = xi["team_a"], xi["team_b"]
         if not (len(ta["players"]) >= 11 and len(tb["players"]) >= 11):
             return None
-        try:
-            info = parse_info(self._call("info", match_id))
-        except NoData:
-            return None
         first = info["batting_first"]
-        if not first:                                        # toss not announced / text not understood
-            return None
         a, b = (ta, tb) if ta["code"] == first else (tb, ta)
         from tracker import with_role
         day = (start or datetime.now(IST)).strftime("%Y-%m-%d")

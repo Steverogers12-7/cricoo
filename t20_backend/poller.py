@@ -1,14 +1,16 @@
-
 """Quota-aware scheduler. One background thread; visitors never trigger upstream calls.
 
 Day plan (all times IST):
-  06:00+   Fetch today's schedule.
-           If empty, retry every 10 minutes.
-  start-28 Prepare: playing XI and match info, retry every 4 minutes.
-  live     Fetch over history and update score/predictions.
-  done     Keep final match state visible until the next match is prepared.
+  06:00+   Fetch today's schedule (1 call). If empty: retry every 30 min, max 4 times a day.
+  start-28 Prepare: toss + playing XI.
+  live     Fetch over history. Innings 1: every over. Innings 2: every 3 overs (every 2 after over 14).
+           Innings break: every 10 min.
+  done     Keep final match state visible until the next match.
+
+Every poll returns the FULL over history, so polling less often never loses overs in the projection log.
 """
 
+import os
 import threading
 import time
 import traceback
@@ -36,8 +38,14 @@ def compute_result(md):
     return f"{md.team_a['name']} won by {r1 - r2} runs"
 
 
-PRE_MIN = 28
-SCHEDULE_RETRY_MIN = 10
+PRE_MIN = 28                     # start preparing this many minutes before the match
+SCHEDULE_RETRY_MIN = 30          # empty schedule: retry gap
+MAX_EMPTY_TRIES = 4              # empty schedule: max refreshes per day
+BREAK_POLL_MIN = 10              # innings break poll gap
+PREP_GIVE_UP_MIN = 90            # stop waiting for toss/XI this long after start
+FIRST_POLL_AFTER_START_MIN = 5
+INN2_STEP = int(os.getenv("INN2_STEP", "3"))             # overs per poll in innings 2
+INN2_LATE_STEP = int(os.getenv("INN2_LATE_STEP", "2"))   # ... from over 14 on
 
 NONE_STATE = {
     "demo": False,
@@ -54,7 +62,9 @@ class Poller:
         self.clock = clock or (lambda: datetime.now(IST))
 
         self.sched = []
+        self.later = []
         self.sched_day = None
+        self.empty_tries = 0
         self.done_ids = set()
         self.cur = None
 
@@ -80,27 +90,20 @@ class Poller:
     def health(self):
         return {
             "quota_remaining": self.q.remaining(),
+            "api_calls_this_run": getattr(self.c, "calls", None),
             "phase": self.cur["phase"] if self.cur else "idle",
             "match": self.cur["id"] if self.cur else None,
             "last_error": self.last_error,
             "model1_checks": (
                 {
                     k: self.t._pre[self.cur["id"]].get(k)
-                    for k in (
-                        "venue_used",
-                        "unresolved_players",
-                        "warnings",
-                    )
+                    for k in ("venue_used", "unresolved_players", "warnings")
                 }
                 if self.cur and self.cur["id"] in self.t._pre
                 else {}
             ),
             "schedule_today": [
-                (
-                    m["team_a"],
-                    m["team_b"],
-                    m["start"].strftime("%H:%M"),
-                )
+                (m["team_a"], m["team_b"], m["start"].strftime("%H:%M"))
                 for m in self.sched
             ],
         }
@@ -166,36 +169,42 @@ class Poller:
             self.state = state
 
     def _refresh_schedule(self, now, day):
-        """Fetch the schedule for today and report what the API returned."""
-        print(
-            f"[poller] fetching schedule for {day}",
-            flush=True,
-        )
+        """Fetch the schedule (1-2 API calls) and split it into today / later days."""
+        print(f"[poller] fetching schedule for {day}", flush=True)
+
+        if self.sched_day != day:
+            self.empty_tries = 0
 
         matches = self.c.upcoming()
 
-        self.sched = [
-            m
-            for m in matches
-            if m["start"].astimezone(IST).strftime("%Y-%m-%d") == day
-        ]
+        def d(m):
+            return m["start"].astimezone(IST).strftime("%Y-%m-%d")
 
-        self.sched.sort(key=lambda m: m["start"])
+        self.sched = sorted((m for m in matches if d(m) == day), key=lambda m: m["start"])
+        self.later = [m for m in matches if d(m) > day]
         self.sched_day = day
+        if not self.sched:
+            self.empty_tries += 1
 
         print(
-            f"[poller] schedule_today={len(self.sched)} "
+            f"[poller] schedule_today={len(self.sched)} later={len(self.later)} "
             f"matches={[(m['match_id'], m['team_a'], m['team_b']) for m in self.sched]}",
             flush=True,
+        )
+
+    def _next_6am(self, now):
+        return now.replace(hour=6, minute=0, second=0, microsecond=0) + timedelta(
+            days=1 if now.hour >= 6 else 0
         )
 
     def _tick(self, now):
         day = now.strftime("%Y-%m-%d")
 
-        # Refresh on a new day, or retry when today's schedule is empty.
-        if now.hour >= 6 and (
-            self.sched_day != day or not self.sched
-        ):
+        # Refresh on a new day. If today is empty AND no later match is known, retry a few times only.
+        can_retry_empty = (
+            not self.sched and not self.later and self.empty_tries < MAX_EMPTY_TRIES
+        )
+        if now.hour >= 6 and (self.sched_day != day or can_retry_empty):
             self._refresh_schedule(now, day)
 
         # --------------------------------------------------------
@@ -214,29 +223,16 @@ class Poller:
             )
 
             if nxt is None:
-                if not self.sched and now.hour >= 6:
-                    # No matches returned: try fetching again in 10 minutes.
-                    self.wake = now + timedelta(
-                        minutes=SCHEDULE_RETRY_MIN
-                    )
-                    print(
-                        "[poller] schedule empty; retrying in "
-                        f"{SCHEDULE_RETRY_MIN} minutes",
-                        flush=True,
-                    )
+                if (
+                    now.hour >= 6
+                    and not self.sched
+                    and not self.later
+                    and self.empty_tries < MAX_EMPTY_TRIES
+                ):
+                    self.wake = now + timedelta(minutes=SCHEDULE_RETRY_MIN)
+                    print(f"[poller] schedule empty; retry in {SCHEDULE_RETRY_MIN} min", flush=True)
                 else:
-                    # Today's schedule exists, but no eligible match remains.
-                    self.wake = (
-                        now.replace(
-                            hour=6,
-                            minute=0,
-                            second=0,
-                            microsecond=0,
-                        )
-                        + timedelta(
-                            days=1 if now.hour >= 6 else 0
-                        )
-                    )
+                    self.wake = self._next_6am(now)
 
                 if self.state.get("status") != "done":
                     self._set(dict(NONE_STATE))
@@ -253,8 +249,7 @@ class Poller:
                         {
                             **NONE_STATE,
                             "next": (
-                                f"Next: {nxt['team_a']} vs "
-                                f"{nxt['team_b']} at "
+                                f"Next: {nxt['team_a']} vs {nxt['team_b']} at "
                                 f"{nxt['start'].astimezone(IST).strftime('%H:%M')} IST"
                             ),
                         }
@@ -263,8 +258,7 @@ class Poller:
                 return
 
             print(
-                f"[poller] preparing match {nxt['match_id']}: "
-                f"{nxt['team_a']} vs {nxt['team_b']}",
+                f"[poller] preparing match {nxt['match_id']}: {nxt['team_a']} vs {nxt['team_b']}",
                 flush=True,
             )
 
@@ -275,13 +269,14 @@ class Poller:
                 "tries": 0,
                 "md": None,
                 "overs": -1,
-                "ema": 210.0,
+                "ema": 230.0,
                 "last_new": None,
                 "miss": 0,
+                "inn": 1,
             }
 
         # --------------------------------------------------------
-        # Pre-match: wait for playing XI and toss
+        # Pre-match: wait for toss and playing XI
         # --------------------------------------------------------
 
         cur = self.cur
@@ -292,19 +287,15 @@ class Poller:
             if prep is None:
                 cur["tries"] += 1
 
-                print(
-                    f"[poller] match {cur['id']} not ready; "
-                    f"attempt {cur['tries']}",
-                    flush=True,
-                )
+                print(f"[poller] match {cur['id']} not ready; attempt {cur['tries']}", flush=True)
 
-                if cur["tries"] > 10:
+                if now > cur["start"] + timedelta(minutes=PREP_GIVE_UP_MIN):
                     self.done_ids.add(cur["id"])
                     self.cur = None
                     self.wake = now + timedelta(minutes=1)
                     return
 
-                self.wake = now + timedelta(minutes=4)
+                self.wake = now + timedelta(minutes=4 if now < cur["start"] else 8)
                 return
 
             cur["md"] = MatchData(
@@ -320,22 +311,18 @@ class Poller:
 
             cur["phase"] = "live"
 
-            print(
-                f"[poller] match {cur['id']} prepared; "
-                "starting score polling",
-                flush=True,
-            )
+            print(f"[poller] match {cur['id']} prepared; starting score polling", flush=True)
 
             self._set(self.t.build(cur["md"], now.timestamp()))
 
             self.wake = max(
                 now + timedelta(minutes=1),
-                cur["start"] + timedelta(minutes=3),
+                cur["start"] + timedelta(minutes=FIRST_POLL_AFTER_START_MIN),
             )
             return
 
         # --------------------------------------------------------
-        # Live: fetch full over history
+        # Live: fetch full over history (1 call)
         # --------------------------------------------------------
 
         md = cur["md"]
@@ -375,10 +362,7 @@ class Poller:
         # --------------------------------------------------------
 
         if md.done:
-            print(
-                f"[poller] match {cur['id']} completed: {md.result}",
-                flush=True,
-            )
+            print(f"[poller] match {cur['id']} completed: {md.result}", flush=True)
 
             self.done_ids.add(cur["id"])
             self.cur = None
@@ -386,60 +370,46 @@ class Poller:
             return
 
         # --------------------------------------------------------
-        # Schedule the next score poll
+        # Schedule the next poll
         # --------------------------------------------------------
 
         overs = len(md.inn1.entries) + len(md.inn2.entries)
+        inn = 2 if md.inn2.started else 1
+        new = overs > cur["overs"]
 
-        if overs > cur["overs"]:
-            if cur["last_new"] is not None and overs > cur["overs"] >= 0:
-                gap = (
-                    (now - cur["last_new"]).total_seconds()
-                    / max(1, overs - cur["overs"])
-                )
-
-                cur["ema"] = min(
-                    420.0,
-                    max(
-                        120.0,
-                        0.6 * cur["ema"] + 0.4 * gap,
-                    ),
-                )
+        if new:
+            # learn the over duration (skip across the innings change: the break would pollute it)
+            if cur["last_new"] is not None and cur["overs"] >= 0 and cur.get("inn") == inn:
+                gap = (now - cur["last_new"]).total_seconds() / max(1, overs - cur["overs"])
+                cur["ema"] = min(330.0, max(150.0, 0.6 * cur["ema"] + 0.4 * gap))
 
             cur["last_new"] = now
             cur["overs"] = overs
+            cur["inn"] = inn
             cur["miss"] = 0
-
-            if md.inn1.finished and not md.inn2.started:
-                delay = 7 * 60
-            else:
-                delay = max(
-                    60.0,
-                    cur["ema"] * self._step() - 10,
-                )
-
         else:
             cur["miss"] += 1
-            delay = (
-                30.0
-                if cur["miss"] <= 3
-                else cur["ema"] * 0.5
-            )
+
+        if md.inn1.finished and not md.inn2.started:
+            # innings break: nothing new for ~20 min, do NOT hammer the API
+            delay = BREAK_POLL_MIN * 60.0
+        elif new:
+            step = self._step()
+            if md.inn2.started:
+                late = len(md.inn2.entries) >= 14
+                step = max(step, INN2_LATE_STEP if late else INN2_STEP)
+            # +15 s: land just AFTER the over(s) finish, not before (a miss costs a call)
+            delay = max(60.0, cur["ema"] * step + 15)
+        elif cur["miss"] <= 2:
+            delay = 45.0
+        else:
+            delay = min(600.0, 60.0 * 2 ** (cur["miss"] - 2))   # stall / rain: 2, 4, 8, 10 min
 
         self.wake = now + timedelta(seconds=delay)
 
     def _step(self):
-        """Choose how many overs to cover per poll based on remaining quota."""
-        left = max(
-            1,
-            len(
-                [
-                    m
-                    for m in self.sched
-                    if m["match_id"] not in self.done_ids
-                ]
-            ),
-        )
+        """Choose how many overs to cover per poll (innings 1) based on remaining quota."""
+        left = max(1, len([m for m in self.sched if m["match_id"] not in self.done_ids]))
 
         per = self.q.remaining() / left
 

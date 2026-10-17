@@ -44,6 +44,7 @@ class T20Tracker:
         pre = self._model1(m)
         s = {
             "demo": False, "status": st, "updatedAt": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(now or time.time())),
+            "date": m.date,
             "venue": m.venue, "toss": m.toss, "result": m.result,
             "teams": {"a": m.team_a, "b": m.team_b},
             "model1": {"total": pre["total"], "low": pre["low"], "high": pre["high"], "xiA": m.xi_a, "xiB": m.xi_b},

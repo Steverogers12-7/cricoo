@@ -4,8 +4,9 @@
   'use strict';
 
   /* ---------- Configuration ---------- */
-  // Empty API_BASE enables pure standalone Demo Mode.
-  var API_BASE = ''; 
+  // >>> APNA RENDER URL YAHAN DAALO (bina trailing slash ke). Khaali = sirf demo mode.
+  var API_BASE = 'https://YOUR-SERVICE.onrender.com';
+  var DEMO = /[?&]demo=1/.test(location.search);   // page?demo=1 -> demo match
   var POLL_MS = 60000;
   var DEMO_STEP_MS = 1500;
 
@@ -18,6 +19,15 @@
   }
   function sum(a) { return a.reduce(function (x, y) { return x + y; }, 0); }
   function cumTo(a, n) { return sum(a.slice(0, n)); }
+
+  /* Missing fields se crash roko */
+  function normalize(s) {
+    s.teams = s.teams || { a: { code: 'A', name: 'Team A' }, b: { code: 'B', name: 'Team B' } };
+    s.model1 = s.model1 || { total: 0 };
+    s.inn1 = Object.assign({ runsByOver: [], wktsByOver: [], proj: [], ballsByOver: [] }, s.inn1);
+    s.inn2 = Object.assign({ target: 0, runsByOver: [], wktsByOver: [], win: [], ballsByOver: [] }, s.inn2);
+    return s;
+  }
 
   /* Team Badge Colors */
   var TEAM_COL = {
@@ -143,7 +153,6 @@
       st.className = 'ipl-status' + (s.status === 'inn1' || s.status === 'inn2' ? ' is-live' : s.status === 'done' ? ' is-done' : '');
     }
 
-    // Layout: [badge] INDIA / 101-3 11.0 / KL Rahul 54(21) vs Vijay 21(10)   (right side mirror: bowler figures)
     function teamInner(t, has, runs, wkts, overs, batting, detail) {
       return '<div class="ipl-shead">' + badge(t.code) +
         '<div class="ipl-sname"><div class="nm">' + esc(t.name) + (batting ? '<span class="ipl-bat" title="Batting"></span>' : '') + '</div>' +
@@ -163,7 +172,6 @@
     // Batters / bowler: API se s.live = { batters:[{name,runs,balls}], bowler:{name,runs,wkts} } aana chahiye
     var lv = s.live || {};
     function batHtml(arr) {
-      // ek ke neeche ek (CSS column), sirf naam + score, "vs" nahi
       return (arr || []).map(function (x) {
         return '<span class="ipl-bt">' + esc(x.name) + ' <b>' + x.runs + '</b>(' + x.balls + ')</span>';
       }).join('');
@@ -185,7 +193,7 @@
       line = s.toss || 'Toss done. Match starting shortly.';
       chips.push(['Inplay Pre-Model Target', s.model1.total]);
     } else if (s.status === 'inn1') {
-      line = ''; // innings 1 me score upar team row me hi hai
+      line = '';
     } else if (s.status === 'break') {
       line = 'Innings break. ' + esc(b.code) + ' need ' + s.inn2.target + ' to win';
       chips.push(['Target', s.inn2.target], ['Innings 1 Score', i1.runs]);
@@ -254,7 +262,6 @@
     if (!ov.user || ov.sel > n - 1) { ov.sel = n - 1; ov.user = false; }
     if ($('ovWrap')) $('ovWrap').classList.toggle('d-none', n === 0);
     if (!n) { sc.innerHTML = ''; if ($('mOverDetail')) $('mOverDetail').innerHTML = ''; return; }
-    // Har over ek group: Over 38  (1)(2)(0)(1)(1)(1) = 6
     var html = '', k;
     for (k = 0; k < n; k++) {
       var balls = cur.ballsByOver && cur.ballsByOver[k];
@@ -262,7 +269,6 @@
         (balls ? balls.map(ballHtml).join('') : '') +
         '<span class="ipl-ovtot">= ' + cur.runsByOver[k] + '</span></div>';
     }
-    // Chalta hua over (abhi complete nahi): API se cur.currentBalls = ['1','0','W'...], total nahi dikhta
     if (cur.currentBalls && cur.currentBalls.length) {
       html += '<div class="ipl-ovgrp"><span class="ipl-ovlbl">Over ' + (n + 1) + '</span>' + cur.currentBalls.map(ballHtml).join('') + '</div>';
     }
@@ -301,11 +307,11 @@
   }
 
   /* ---------- Over-by-Over Projection Log Table & Summary Update ---------- */
-  var lastLogN = -1; // sirf naya over aane par neeche scroll karne ke liye
+  var lastLogN = -1;
 
   function updateProjectionLogsAndSummary(s) {
     var tbody = $('projectionLogBody');
-    var badge = $('logStatusBadge');
+    var badgeEl = $('logStatusBadge');
     var summaryCard = $('matchSummaryCard');
     if (!tbody) return;
 
@@ -314,7 +320,7 @@
     if (n === 0) {
       tbody.innerHTML = '<tr id="noDataRow"><td colspan="4" class="text-center text-muted py-3">Match projection log will appear here over by over...</td></tr>';
       if (summaryCard) summaryCard.classList.add('d-none');
-      if (badge) { badge.textContent = 'In Progress'; badge.className = 'badge bg-primary'; }
+      if (badgeEl) { badgeEl.textContent = 'In Progress'; badgeEl.className = 'badge bg-primary'; }
       lastLogN = 0;
       return;
     }
@@ -332,12 +338,11 @@
     }
     tbody.innerHTML = html;
 
-    // Naya over aaya (ya over count badla) to latest rows tak neeche scroll karo
     var wrap = $('logScroll');
     if (wrap && n !== lastLogN) wrap.scrollTop = wrap.scrollHeight;
     lastLogN = n;
 
-    // Match / innings khatam: summary row (best over sirf 1-12 overs me se)
+    // Innings 1 khatam: summary row (best over sirf 1-12 overs me se)
     if (s.status === 'done' || n >= 20) {
       var actualFinalScore = sum(s.inn1.runsByOver);
       var minError = Infinity;
@@ -347,19 +352,19 @@
 
       for (k = 0; k < limit; k++) {
         var err = Math.abs(s.inn1.proj[k] - actualFinalScore);
-        if (err < minError) { // barabari par pehla (chhota) over
+        if (err < minError) {
           minError = err;
           bestOver = k + 1;
           bestProj = s.inn1.proj[k];
         }
       }
 
-      if (badge) {
-        badge.textContent = 'Match Finished';
-        badge.className = 'badge bg-success';
+      if (badgeEl) {
+        badgeEl.textContent = 'Match Finished';
+        badgeEl.className = 'badge bg-success';
       }
 
-      function setTxt(id, v) { if ($(id)) $(id).textContent = v; }
+      var setTxt = function (id, v) { if ($(id)) $(id).textContent = v; };
       var dt = s.date ? new Date(s.date) : null;
       setTxt('summaryDate', dt && !isNaN(dt) ? dt.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '-');
       setTxt('summaryBat', s.teams.a.name);
@@ -373,7 +378,7 @@
       if (summaryCard) summaryCard.classList.remove('d-none');
     } else {
       if (summaryCard) summaryCard.classList.add('d-none');
-      if (badge) { badge.textContent = 'In Progress'; badge.className = 'badge bg-primary'; }
+      if (badgeEl) { badgeEl.textContent = 'In Progress'; badgeEl.className = 'badge bg-primary'; }
     }
   }
 
@@ -388,6 +393,7 @@
       if ($('mStatus')) { $('mStatus').textContent = 'NO LIVE MATCH'; $('mStatus').className = 'ipl-status'; }
       return;
     }
+    s = normalize(s);
     renderStrip(s);
     renderInplayMonitoring(s);
     updateProjectionLogsAndSummary(s);
@@ -425,18 +431,17 @@
     if ($('dNext')) $('dNext').onclick = function () { demoStop(); t = Math.min(42, t + 1); demoRender(); };
     if ($('dPrev')) $('dPrev').onclick = function () { demoStop(); t = Math.max(0, t - 1); demoRender(); };
     if ($('dJump')) $('dJump').onchange = function () { demoStop(); t = +this.value; demoRender(); };
-    
-    t = 10; 
+
+    t = 10;
     demoRender();
   }
 
+  /* Live fetch: fail hone par demo NAHI chalta, sirf console me error */
   function fetchLive() {
     fetch(API_BASE + '/api/t20/live', { cache: 'no-store' })
       .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
-      .then(render)
-      .catch(function () {
-        initDemo();
-      });
+      .then(function (s) { try { render(s); } catch (e) { console.error('render failed', e, s); } })
+      .catch(function (e) { console.error('fetch failed', e); });
   }
 
   function startApp() {
@@ -450,7 +455,7 @@
       });
       $('mOvers').addEventListener('scroll', navState);
     }
-    // < > buttons hata diye: strip ko mouse se drag karo (ya touch / shift+wheel)
+    // strip ko mouse se drag karo (ya touch / shift+wheel)
     var strip = $('mOvers');
     if (strip) {
       var down = false, sx = 0, sl = 0;
@@ -459,11 +464,11 @@
       window.addEventListener('mousemove', function (e) { if (down) strip.scrollLeft = sl - (e.pageX - sx); });
     }
 
-    if (API_BASE) {
+    if (DEMO || !API_BASE) {
+      initDemo();
+    } else {
       fetchLive();
       setInterval(fetchLive, POLL_MS);
-    } else {
-      initDemo();
     }
   }
 
