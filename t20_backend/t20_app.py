@@ -44,7 +44,10 @@ else:
     from api_client import ApiClient
     poller = Poller(ApiClient(quota), tracker, quota)
 
-# ---- poller thread + watchdog: if the thread is missing or dead it is (re)started, on import and on every request
+# ---- poller thread + watchdog: if the thread is missing or dead it is (re)started on every request.
+# NOTE: it is deliberately NOT started at import time. If the app is imported in a process that is later
+# forked/replaced, an import-time thread can end up running twice (two pollers = double API calls).
+# The first request (Render health check / cron-job ping) starts it inside the worker.
 _poller_thread = None
 _poller_lock = threading.Lock()
 
@@ -61,9 +64,6 @@ def ensure_poller():
         if not poller_alive():
             _poller_thread = threading.Thread(target=poller.run_forever, daemon=True, name="poller")
             _poller_thread.start()
-
-
-ensure_poller()
 
 
 @app.before_request
