@@ -57,54 +57,123 @@
       <!-- ============ 1. LIVE MATCH STRIP ============ -->
       <section class="bg-dark ipl-hero">
         <div class="container">
-          <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 ipl-topbar">
+          <div class="d-flex flex-wrap align-items-center justify-content-between gap-0.5 ipl-topbar">
             <div>
               <p class="ipl-eyebrow">T20 &middot; <span id="mVenue">Venue</span></p>
-            </div>
-            <div class="d-flex align-items-center gap-3">
-              <span id="mStatus" class="ipl-status">&nbsp;</span>
             </div>
           </div>
 
           <div class="ipl-score-card" aria-live="polite">
             <div id="mEmpty" class="ipl-empty-live d-none"></div>
-            <div class="row align-items-center g-4" id="mMain">
-              <div class="col-lg-5">
-                <div class="ipl-team" id="teamA"></div>
-                <div class="ipl-team mt-3" id="teamB"></div>
+            <div class="row align-items-start g-2" id="mMain">
+              <!-- LEFT: team A (score + batters / bowler) -->
+              <div class="col-lg-4">
+                <div class="ipl-side" id="teamA"></div>
               </div>
-              <div class="col-lg-7">
-                <p class="ipl-line" id="mLine">&nbsp;</p>
+              <!-- CENTER: need-runs line / win bar / chips (khali ho to hide) -->
+              <div class="col-lg-4 ipl-center">
+                <p class="ipl-line" id="mLine"></p>
                 <div class="ipl-sw d-none" id="mWin"></div>
                 <div class="ipl-chips" id="mChips"></div>
+              </div>
+              <!-- RIGHT: team B (mirror) -->
+              <div class="col-lg-4">
+                <div class="ipl-side is-right" id="teamB"></div>
+              </div>
+
+              <!-- Overs carousel: full width of the score card -->
+              <div class="col-12">
                 <div class="ipl-ovwrap" id="ovWrap">
-                  <button type="button" class="ipl-ovnav" id="ovPrev" aria-label="Earlier overs">&#8249;</button>
-                  <div class="ipl-overs" id="mOvers"></div>
-                  <button type="button" class="ipl-ovnav" id="ovNext" aria-label="Later overs">&#8250;</button>
+                  <!-- ball-by-ball strip: Over 38 (1)(2)(0)(1)(1)(1) = 6 | Over 39 ... -->
+                  <div class="ipl-ovstrip" id="mOvers"></div>
                 </div>
-                <div class="ipl-ovdetail" id="mOverDetail"></div>
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      <!-- ============ 2. INPLAY MODEL MONITORING PANEL ============ -->
+      <!-- ============ 2. INPLAY MODEL (LEFT) + PROJECTION LOG (RIGHT) ============ -->
       <section id="model-panel" class="ipl-model-sec">
         <div class="container">
-          <div class="ipl-model">
-            <div class="ipl-model-head">
-              <div>
-                <p class="ipl-eyebrow">Cricoo Engine</p>
-                <h2>Inplay Model Monitoring</h2>
-              </div>
-              <div class="ipl-tabs" role="tablist" id="tabs">
-                <button class="ipl-tab active" role="tab" data-tab="inplay" id="tab-inplay">Inplay Model</button>
+
+          <div class="row g-3">
+
+            <!-- LEFT: inplay box -->
+            <div class="col-lg-4">
+              <div class="ipl-model">
+                <div class="ipl-model-head">
+                  <h2 class="ipl-model-title">Live Projection</h2>
+                </div>
+
+                <div class="ipl-panel">
+                  <div class="ipl-pane active" id="pane-inplay" role="tabpanel"></div>
+                </div>
               </div>
             </div>
 
-            <div class="ipl-panel">
-              <div class="ipl-pane active" id="pane-inplay" role="tabpanel"></div>
+            <!-- RIGHT: Over-by-Over Projection Log -->
+            <div class="col-lg-8">
+              <div class="card bg-dark text-white border-secondary mb-0">
+                <div class="card-header border-secondary d-flex justify-content-between align-items-center">
+                  <h5 class="mb-0 text-white"><i class="fa-solid fa-chart-line me-2 text-warning"></i>Over-by-Over Target Projection Log</h5>
+                  <span class="badge bg-primary" id="logStatusBadge">In Progress</span>
+                </div>
+                <div class="card-body p-0">
+                  <div class="ipl-log-scroll" id="logScroll">
+                    <table class="table table-dark table-striped table-hover mb-0 align-middle ipl-log-table">
+                      <thead>
+                        <tr>
+                          <th scope="col" class="text-center">Over</th>
+                          <th scope="col">Batting Team</th>
+                          <th scope="col">Current Score</th>
+                          <th scope="col" class="text-warning">Projected Score / Target</th>
+                        </tr>
+                      </thead>
+                      <tbody id="projectionLogBody">
+                        <tr id="noDataRow">
+                          <td colspan="4" class="text-center text-muted py-3">Match projection log will appear here over by over...</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- End of Match Prediction Summary (full width, below the row) -->
+          <div class="ipl-sum d-none" id="matchSummaryCard">
+            <h3 class="ipl-sum-title">Match End Prediction Summary</h3>
+            <p class="ipl-sum-sub">Overs 1-12 me se jis over ka projection final actual score ke sabse kareeb tha</p>
+            <div class="ipl-sum-scroll">
+              <table class="ipl-sum-table">
+                <thead>
+                  <tr>
+                    <th>Match Date</th>
+                    <th>Batting Team</th>
+                    <th>Bowling Team</th>
+                    <th>Over</th>
+                    <th>Current Score</th>
+                    <th>Projected</th>
+                    <th>Actual</th>
+                    <th>Error</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td id="summaryDate">-</td>
+                    <td id="summaryBat">-</td>
+                    <td id="summaryBowl">-</td>
+                    <td id="summaryOver">-</td>
+                    <td id="summaryScore">-</td>
+                    <td id="summaryProj" class="is-proj">-</td>
+                    <td id="summaryActual" class="is-actual">-</td>
+                    <td id="summaryError">-</td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
           </div>
 
@@ -123,6 +192,7 @@
             </select>
             <span id="dLabel" class="ipl-sub"></span>
           </div>
+
         </div>
       </section>
 

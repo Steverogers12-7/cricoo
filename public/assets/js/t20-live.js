@@ -78,7 +78,7 @@
 
   function buildDemo(t) {
     var s = {
-      demo: true, updatedAt: new Date().toISOString(), venue: D.venue, toss: D.toss, result: '',
+      demo: true, updatedAt: new Date().toISOString(), date: new Date().toISOString(), venue: D.venue, toss: D.toss, result: '',
       teams: D.teams, model1: D.model1,
       inn1: { runsByOver: [], wktsByOver: [], proj: [], ballsByOver: [] },
       inn2: { target: 0, runsByOver: [], wktsByOver: [], win: [], ballsByOver: [] }
@@ -107,50 +107,25 @@
       var margin = s.inn2.target - 1 - sum(D.inn2Runs);
       s.result = margin > 0 ? D.teams.a.code + ' won by ' + margin + ' runs' : D.teams.b.code + ' won match';
     }
+    // Demo batters / bowler (live me ye API se aayenge)
+    if (s.status === 'inn1' || s.status === 'inn2') {
+      var cur1 = s.status === 'inn1' ? s.inn1 : s.inn2;
+      var rr = sum(cur1.runsByOver), oo = cur1.runsByOver.length, ww = sum(cur1.wktsByOver);
+      var nm = s.status === 'inn1' ? ['KL Rahul', 'Vijay', 'M. Starc'] : ['T. Head', 'D. Warner', 'J. Bumrah'];
+      s.live = {
+        batters: [
+          { name: nm[0], runs: Math.round(rr * 0.5), balls: Math.round(oo * 6 * 0.35) },
+          { name: nm[1], runs: Math.round(rr * 0.2), balls: Math.round(oo * 6 * 0.16) }
+        ],
+        bowler: { name: nm[2], runs: Math.round(oo * 1.4), wkts: Math.min(3, Math.floor(ww / 2)) }
+      };
+    }
     return s;
   }
 
   function innings(runsBy, wktsBy) {
     var n = runsBy.length;
-    return { runs: sum(runsBy), wkts: sum(wktsBy), overs: n, crr: n ? sum(runsBy) / n : 0 };
-  }
-
-  /* ---------- SVG Line Chart ---------- */
-  function chartSize() {
-    var p = document.querySelector('.ipl-panel'), w = p ? p.clientWidth : 640;
-    w = Math.max(300, Math.min(1200, w));
-    return [w, w < 520 ? 160 : 180];
-  }
-
-  function lineChart(opt) {
-    var sz = chartSize(), W = sz[0], H = sz[1], L = 36, R = 12, T = 10, B = 24;
-    var pw = W - L - R, ph = H - T - B;
-    function X(x) { return L + (x / 20) * pw; }
-    function Y(y) { return T + ph - ((y - opt.yMin) / (opt.yMax - opt.yMin)) * ph; }
-    var out = '<svg class="ipl-chart" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="' + esc(opt.label) + '">';
-    var g, v;
-    for (g = 0; g <= 4; g++) {
-      v = opt.yMin + (g / 4) * (opt.yMax - opt.yMin);
-      out += '<line x1="' + L + '" x2="' + (W - R) + '" y1="' + Y(v) + '" y2="' + Y(v) + '" stroke="rgba(255,255,255,.08)"/>';
-      out += '<text x="' + (L - 6) + '" y="' + (Y(v) + 4) + '" text-anchor="end">' + Math.round(v) + (opt.unit || '') + '</text>';
-    }
-    for (g = 0; g <= 20; g += 5) {
-      out += '<text x="' + X(g) + '" y="' + (H - 6) + '" text-anchor="middle">' + g + '</text>';
-    }
-    out += '<text x="' + (W - R) + '" y="' + (T + 2) + '" text-anchor="end">overs</text>';
-    opt.series.forEach(function (s) {
-      if (!s.pts.length) return;
-      var d = s.pts.map(function (p, i) { return (i ? 'L' : 'M') + X(p[0]).toFixed(1) + ' ' + Y(p[1]).toFixed(1); }).join(' ');
-      if (s.area) {
-        var last = s.pts[s.pts.length - 1], first = s.pts[0];
-        out += '<path d="' + d + ' L' + X(last[0]).toFixed(1) + ' ' + Y(opt.yMin) + ' L' + X(first[0]).toFixed(1) + ' ' + Y(opt.yMin) + ' Z" fill="' + s.color + '" opacity=".12"/>';
-      }
-      out += '<path d="' + d + '" fill="none" stroke="' + s.color + '" stroke-width="' + (s.w || 2.5) + '"' +
-        (s.dash ? ' stroke-dasharray="6 5"' : '') + ' stroke-linejoin="round" stroke-linecap="round"/>';
-      var e = s.pts[s.pts.length - 1];
-      if (s.dot) out += '<circle cx="' + X(e[0]).toFixed(1) + '" cy="' + Y(e[1]).toFixed(1) + '" r="4.5" fill="' + s.color + '"/>';
-    });
-    return out + '</svg>';
+    return { runs: sum(runsBy), wkts: sum(wktsBy), overs: n };
   }
 
   /* ---------- Render Live Strip ---------- */
@@ -168,32 +143,49 @@
       st.className = 'ipl-status' + (s.status === 'inn1' || s.status === 'inn2' ? ' is-live' : s.status === 'done' ? ' is-done' : '');
     }
 
-    function teamInner(t, score, small, batting) {
-      return badge(t.code) +
-        '<div class="nm">' + esc(t.name) + (batting ? '<span class="ipl-bat" title="Batting"></span>' : '') + '<small>' + esc(t.code) + '</small></div>' +
-        '<div class="sc">' + score + '<small>' + small + '</small></div>';
+    // Layout: [badge] INDIA / 101-3 11.0 / KL Rahul 54(21) vs Vijay 21(10)   (right side mirror: bowler figures)
+    function teamInner(t, has, runs, wkts, overs, batting, detail) {
+      return '<div class="ipl-shead">' + badge(t.code) +
+        '<div class="ipl-sname"><div class="nm">' + esc(t.name) + (batting ? '<span class="ipl-bat" title="Batting"></span>' : '') + '</div>' +
+          (has
+            ? '<div class="ipl-sline"><b>' + runs + '-' + wkts + '</b><span>' + overs + '.0</span></div>'
+            : '<div class="ipl-sline"><span>Yet to bat</span></div>') +
+        '</div></div>' +
+        (detail ? '<div class="ipl-sdetail">' + detail + '</div>' : '');
     }
 
     function paint(el, extra, batting, overs, inner) {
       if (!el) return;
-      el.className = 'ipl-team' + extra + (batting ? ' is-batting' : '');
-      el.style.setProperty('--p', Math.min(100, Math.round((overs || 0) / 20 * 100)) + '%');
+      el.className = 'ipl-side' + extra + (batting ? ' is-batting' : '');
       el.innerHTML = inner;
     }
 
+    // Batters / bowler: API se s.live = { batters:[{name,runs,balls}], bowler:{name,runs,wkts} } aana chahiye
+    var lv = s.live || {};
+    function batHtml(arr) {
+      // ek ke neeche ek (CSS column), sirf naam + score, "vs" nahi
+      return (arr || []).map(function (x) {
+        return '<span class="ipl-bt">' + esc(x.name) + ' <b>' + x.runs + '</b>(' + x.balls + ')</span>';
+      }).join('');
+    }
+    function bowlHtml(w) {
+      return w ? '<span class="ipl-bt">' + esc(w.name) + ' <b>' + w.runs + '/' + w.wkts + '</b></span>' : '';
+    }
+    var aDetail = s.status === 'inn1' ? batHtml(lv.batters) : s.status === 'inn2' ? bowlHtml(lv.bowler) : '';
+    var bDetail = s.status === 'inn2' ? batHtml(lv.batters) : s.status === 'inn1' ? bowlHtml(lv.bowler) : '';
+
     var aHas = s.status !== 'pre', bHas = s.status === 'inn2' || s.status === 'done';
     paint($('teamA'), '', s.status === 'inn1', i1.overs,
-      teamInner(a, aHas ? i1.runs + '/' + i1.wkts : '-', aHas ? '(' + i1.overs + ' ov)' : 'Yet to bat', s.status === 'inn1'));
-    paint($('teamB'), ' mt-3', s.status === 'inn2', i2.overs,
-      teamInner(b, bHas ? i2.runs + '/' + i2.wkts : '-', bHas ? '(' + i2.overs + ' ov)' : 'Yet to bat', s.status === 'inn2'));
+      teamInner(a, aHas, i1.runs, i1.wkts, i1.overs, s.status === 'inn1', aDetail));
+    paint($('teamB'), ' is-right', s.status === 'inn2', i2.overs,
+      teamInner(b, bHas, i2.runs, i2.wkts, i2.overs, s.status === 'inn2', bDetail));
 
     var line = '', chips = [];
     if (s.status === 'pre') {
       line = s.toss || 'Toss done. Match starting shortly.';
       chips.push(['Inplay Pre-Model Target', s.model1.total]);
     } else if (s.status === 'inn1') {
-      line = esc(a.code) + ' batting: ' + i1.runs + '/' + i1.wkts + ' after ' + i1.overs + ' overs';
-      chips.push(['Live Projection', s.inn1.proj.length ? s.inn1.proj[s.inn1.proj.length - 1] : s.model1.total]);
+      line = ''; // innings 1 me score upar team row me hi hai
     } else if (s.status === 'break') {
       line = 'Innings break. ' + esc(b.code) + ' need ' + s.inn2.target + ' to win';
       chips.push(['Target', s.inn2.target], ['Innings 1 Score', i1.runs]);
@@ -209,7 +201,6 @@
     if ($('mLine')) $('mLine').innerHTML = line;
     var sw = $('mWin');
     if (sw) {
-      // win bar only when the backend really sends chase probabilities (the live T20 model is innings-1 only)
       if ((s.status === 'inn2' || s.status === 'done') && s.inn2.win.length) {
         var wn = s.inn2.win[s.inn2.win.length - 1];
         sw.innerHTML = '<div class="top"><span>' + esc(b.code) + ' win <b>' + wn + '%</b></span><span><b>' + (Math.round((100 - wn) * 10) / 10) + '%</b> ' + esc(a.code) + '</span></div>' +
@@ -263,10 +254,17 @@
     if (!ov.user || ov.sel > n - 1) { ov.sel = n - 1; ov.user = false; }
     if ($('ovWrap')) $('ovWrap').classList.toggle('d-none', n === 0);
     if (!n) { sc.innerHTML = ''; if ($('mOverDetail')) $('mOverDetail').innerHTML = ''; return; }
+    // Har over ek group: Over 38  (1)(2)(0)(1)(1)(1) = 6
     var html = '', k;
     for (k = 0; k < n; k++) {
-      html += '<button type="button" class="ipl-over' + (cur.wktsByOver[k] ? ' has-w' : cur.runsByOver[k] >= 12 ? ' is-big' : '') + (k === ov.sel ? ' is-sel' : '') + '" data-k="' + k + '">' +
-        cur.runsByOver[k] + '<small>ov ' + (k + 1) + '</small></button>';
+      var balls = cur.ballsByOver && cur.ballsByOver[k];
+      html += '<div class="ipl-ovgrp"><span class="ipl-ovlbl">Over ' + (k + 1) + '</span>' +
+        (balls ? balls.map(ballHtml).join('') : '') +
+        '<span class="ipl-ovtot">= ' + cur.runsByOver[k] + '</span></div>';
+    }
+    // Chalta hua over (abhi complete nahi): API se cur.currentBalls = ['1','0','W'...], total nahi dikhta
+    if (cur.currentBalls && cur.currentBalls.length) {
+      html += '<div class="ipl-ovgrp"><span class="ipl-ovlbl">Over ' + (n + 1) + '</span>' + cur.currentBalls.map(ballHtml).join('') + '</div>';
     }
     sc.innerHTML = html;
     sc.scrollLeft = left;
@@ -275,7 +273,7 @@
     setTimeout(navState, 400);
   }
 
-  /* ---------- Inplay Model Monitoring Render ---------- */
+  /* ---------- Inplay Model Monitoring Render (Clean 2-Box View) ---------- */
   function renderInplayMonitoring(s) {
     var el = $('pane-inplay');
     if (!el) return;
@@ -283,98 +281,100 @@
     var i1 = innings(s.inn1.runsByOver, s.inn1.wktsByOver);
     var i2 = innings(s.inn2.runsByOver, s.inn2.wktsByOver);
 
-    // chase view only if win probabilities exist; otherwise keep showing the innings-1 projection (no fake 50%)
     var isInn2 = (s.status === 'inn2' || s.status === 'done') && s.inn2.win.length > 0;
     var activeInnings = isInn2 ? i2 : i1;
     var projArr = isInn2 ? s.inn2.win : s.inn1.proj;
     var nOvers = projArr.length;
     var latestVal = nOvers ? projArr[nOvers - 1] : (isInn2 ? 50 : s.model1.total);
 
-    var latency = Math.round(180 + Math.random() * 40);
-    var mae = nOvers ? (Math.round((3.2 + (20 - nOvers) * 0.15) * 10) / 10) : 4.5;
-    var brierScore = isInn2 && nOvers ? (Math.round((0.12 - nOvers * 0.003) * 1000) / 1000) : 0.145;
-    var driftStatus = 'NORMAL';
+    el.innerHTML =
+      '<div class="ipl-kpis mb-0">' +
+        '<div class="ipl-kpi">' +
+          '<div class="v blue">' + activeInnings.runs + '/' + activeInnings.wkts + '</div>' +
+          '<div class="n">Current Score</div>' +
+        '</div>' +
+        '<div class="ipl-kpi">' +
+          '<div class="v mint">' + latestVal + (isInn2 ? '%' : '') + '</div>' +
+          '<div class="n">' + (isInn2 ? 'Win Probability' : 'Projected Score') + '</div>' +
+        '</div>' +
+      '</div>';
+  }
 
-    var chartHtml = '';
-    if (isInn2) {
-      var pts = [];
-      for (var k = 1; k <= nOvers; k++) pts.push([k, s.inn2.win[k - 1]]);
-      chartHtml = lineChart({
-        label: 'Inplay Chase Win Probability Trend', yMin: 0, yMax: 100, unit: '%',
-        series: [
-          { pts: [[0, 50], [20, 50]], color: '#9aa7bd', dash: true, w: 1.5 },
-          { pts: pts, color: '#2fe3a5', w: 3, dot: true, area: true }
-        ]
-      });
-    } else {
-      var projPts = [[0, s.model1.total]], scorePts = [[0, 0]];
-      for (var j = 1; j <= nOvers; j++) {
-        projPts.push([j, s.inn1.proj[j - 1]]);
-        scorePts.push([j, cumTo(s.inn1.runsByOver, j)]);
-      }
-      var yMax = Math.ceil(Math.max(latestVal, s.model1.high, i1.runs) / 20) * 20 + 20;
-      chartHtml = lineChart({
-        label: 'Inplay Score Projection Trend', yMin: 0, yMax: yMax,
-        series: [
-          { pts: [[0, s.model1.total], [20, s.model1.total]], color: '#9aa7bd', dash: true, w: 1.8 },
-          { pts: scorePts, color: '#ffc857', w: 2.2 },
-          { pts: projPts, color: '#2fe3a5', w: 3, dot: true }
-        ]
-      });
+  /* ---------- Over-by-Over Projection Log Table & Summary Update ---------- */
+  var lastLogN = -1; // sirf naya over aane par neeche scroll karne ke liye
+
+  function updateProjectionLogsAndSummary(s) {
+    var tbody = $('projectionLogBody');
+    var badge = $('logStatusBadge');
+    var summaryCard = $('matchSummaryCard');
+    if (!tbody) return;
+
+    var n = s.inn1.proj ? s.inn1.proj.length : 0;
+
+    if (n === 0) {
+      tbody.innerHTML = '<tr id="noDataRow"><td colspan="4" class="text-center text-muted py-3">Match projection log will appear here over by over...</td></tr>';
+      if (summaryCard) summaryCard.classList.add('d-none');
+      if (badge) { badge.textContent = 'In Progress'; badge.className = 'badge bg-primary'; }
+      lastLogN = 0;
+      return;
     }
 
-    el.innerHTML =
-      '<h3>Inplay Prediction Engine &amp; Monitoring Dashboard</h3>' +
-      '<div class="ipl-sub mb-3">Real-time ball-by-ball model performance, drift tracking, and live predictions.</div>' +
+    var html = '', k;
+    for (k = 1; k <= n; k++) {
+      var cumRuns = cumTo(s.inn1.runsByOver, k);
+      var cumWkts = cumTo(s.inn1.wktsByOver, k);
+      html += '<tr>' +
+        '<td class="text-center fw-bold">Over ' + k + '</td>' +
+        '<td>' + esc(s.teams.a.name) + '</td>' +
+        '<td>' + cumRuns + '/' + cumWkts + '</td>' +
+        '<td class="fw-bold text-warning">' + s.inn1.proj[k - 1] + '</td>' +
+      '</tr>';
+    }
+    tbody.innerHTML = html;
 
-      '<div class="ipl-kpis">' +
-        '<div class="ipl-kpi">' +
-          '<div class="l">' + (isInn2 ? 'Live Win Prob (' + esc(s.teams.b.code) + ')' : 'Live Projected Target') + '</div>' +
-          '<div class="v mint">' + latestVal + (isInn2 ? '%' : '') + '</div>' +
-          '<div class="n">Over ' + activeInnings.overs + ' / 20</div>' +
-        '</div>' +
-        '<div class="ipl-kpi">' +
-          '<div class="l">Current Run Rate (CRR)</div>' +
-          '<div class="v blue">' + (activeInnings.overs ? activeInnings.crr.toFixed(2) : '0.00') + '</div>' +
-          '<div class="n">' + activeInnings.runs + '/' + activeInnings.wkts + '</div>' +
-        '</div>' +
-        '<div class="ipl-kpi">' +
-          '<div class="l">Model Latency</div>' +
-          '<div class="v amber">' + latency + ' <small style="font-size:.6em">ms</small></div>' +
-          '<div class="n">Ball-by-ball sync</div>' +
-        '</div>' +
-        '<div class="ipl-kpi">' +
-          '<div class="l">Live Error (MAE)</div>' +
-          '<div class="v">' + mae + '</div>' +
-          '<div class="n">Runs variance</div>' +
-        '</div>' +
-      '</div>' +
+    // Naya over aaya (ya over count badla) to latest rows tak neeche scroll karo
+    var wrap = $('logScroll');
+    if (wrap && n !== lastLogN) wrap.scrollTop = wrap.scrollHeight;
+    lastLogN = n;
 
-      '<div class="mt-3">' + chartHtml + '</div>' +
-      '<div class="ipl-legend mb-3">' +
-        '<span style="--c:#2fe3a5">' + (isInn2 ? esc(s.teams.b.code) + ' Live Win Prob %' : 'Inplay Live Target Projection') + '</span>' +
-        (!isInn2 ? '<span style="--c:#ffc857">Actual Score</span>' : '') +
-        '<span class="dash" style="--c:#9aa7bd">' + (isInn2 ? '50% Baseline' : 'Pre-match Baseline (' + s.model1.total + ')') + '</span>' +
-      '</div>' +
+    // Match / innings khatam: summary row (best over sirf 1-12 overs me se)
+    if (s.status === 'done' || n >= 20) {
+      var actualFinalScore = sum(s.inn1.runsByOver);
+      var minError = Infinity;
+      var bestOver = -1;
+      var bestProj = -1;
+      var limit = Math.min(n, 12);
 
-      '<div class="inplay-grid">' +
-        '<div class="inplay-card">' +
-          '<h4>Model Health Status <span class="ipl-chip"><b class="m">' + driftStatus + '</b></span></h4>' +
-          '<div class="ipl-sub mb-2">Monitors input feature stability and probability calibration.</div>' +
-          '<div class="d-flex justify-content-between my-1"><span class="ipl-sub">Brier Score (Calibration):</span> <b>' + brierScore + '</b></div>' +
-          '<div class="d-flex justify-content-between my-1"><span class="ipl-sub">Feature Drift Index (PSI):</span> <b>0.04 (Low)</b></div>' +
-          '<div class="d-flex justify-content-between my-1"><span class="ipl-sub">Prediction Confidence:</span> <b>94.2%</b></div>' +
-        '</div>' +
-        '<div class="inplay-card">' +
-          '<h4>Match Context Summary</h4>' +
-          '<div class="ipl-sub mb-2">Live inputs fed into the gradient boosted inplay model.</div>' +
-          '<div class="d-flex justify-content-between my-1"><span class="ipl-sub">Match Phase:</span> <b>' + STATUS_TEXT[s.status] + '</b></div>' +
-          '<div class="d-flex justify-content-between my-1"><span class="ipl-sub">Venue Factor:</span> <b>' + esc(s.venue) + '</b></div>' +
-          '<div class="d-flex justify-content-between my-1"><span class="ipl-sub">Toss Impact:</span> <b>Applied</b></div>' +
-        '</div>' +
-      '</div>' +
+      for (k = 0; k < limit; k++) {
+        var err = Math.abs(s.inn1.proj[k] - actualFinalScore);
+        if (err < minError) { // barabari par pehla (chhota) over
+          minError = err;
+          bestOver = k + 1;
+          bestProj = s.inn1.proj[k];
+        }
+      }
 
-      '<div class="ipl-sub mt-3" style="text-align:center">' + esc(s.note || 'Best accuracy after 5 overs') + '</div>';
+      if (badge) {
+        badge.textContent = 'Match Finished';
+        badge.className = 'badge bg-success';
+      }
+
+      function setTxt(id, v) { if ($(id)) $(id).textContent = v; }
+      var dt = s.date ? new Date(s.date) : null;
+      setTxt('summaryDate', dt && !isNaN(dt) ? dt.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '-');
+      setTxt('summaryBat', s.teams.a.name);
+      setTxt('summaryBowl', s.teams.b.name);
+      setTxt('summaryOver', bestOver > 0 ? 'Over ' + bestOver : '-');
+      setTxt('summaryScore', bestOver > 0 ? cumTo(s.inn1.runsByOver, bestOver) + '/' + cumTo(s.inn1.wktsByOver, bestOver) : '-');
+      setTxt('summaryProj', bestOver > 0 ? bestProj : '-');
+      setTxt('summaryActual', actualFinalScore);
+      setTxt('summaryError', bestOver > 0 ? (minError === 0 ? 'Exact (0)' : '\u00b1' + minError + ' runs') : '-');
+
+      if (summaryCard) summaryCard.classList.remove('d-none');
+    } else {
+      if (summaryCard) summaryCard.classList.add('d-none');
+      if (badge) { badge.textContent = 'In Progress'; badge.className = 'badge bg-primary'; }
+    }
   }
 
   var lastState = null;
@@ -390,10 +390,11 @@
     }
     renderStrip(s);
     renderInplayMonitoring(s);
+    updateProjectionLogsAndSummary(s);
   }
 
   /* ---------- Demo Mode Controls ---------- */
-  var t = 10, timer = null; // Starts at over 10 so match & model stats are active immediately
+  var t = 10, timer = null;
   var STAGE_LABEL = function (x) {
     if (x === 0) return 'Toss + XI';
     if (x <= 20) return 'Innings 1, over ' + x;
@@ -425,7 +426,6 @@
     if ($('dPrev')) $('dPrev').onclick = function () { demoStop(); t = Math.max(0, t - 1); demoRender(); };
     if ($('dJump')) $('dJump').onchange = function () { demoStop(); t = +this.value; demoRender(); };
     
-    // Default start at stage 10 (Innings 1 Over 10)
     t = 10; 
     demoRender();
   }
@@ -440,7 +440,6 @@
   }
 
   function startApp() {
-    // Attach carousel listeners
     if ($('mOvers')) {
       $('mOvers').addEventListener('click', function (e) {
         var b = e.target.closest('.ipl-over'); if (!b || !ov.cur) return;
@@ -451,8 +450,14 @@
       });
       $('mOvers').addEventListener('scroll', navState);
     }
-    if ($('ovPrev')) $('ovPrev').onclick = function () { var sc = $('mOvers'); if (sc) sc.scrollBy({ left: -sc.clientWidth * 0.8, behavior: 'smooth' }); };
-    if ($('ovNext')) $('ovNext').onclick = function () { var sc = $('mOvers'); if (sc) sc.scrollBy({ left: sc.clientWidth * 0.8, behavior: 'smooth' }); };
+    // < > buttons hata diye: strip ko mouse se drag karo (ya touch / shift+wheel)
+    var strip = $('mOvers');
+    if (strip) {
+      var down = false, sx = 0, sl = 0;
+      strip.addEventListener('mousedown', function (e) { down = true; sx = e.pageX; sl = strip.scrollLeft; strip.classList.add('is-drag'); });
+      window.addEventListener('mouseup', function () { down = false; strip.classList.remove('is-drag'); });
+      window.addEventListener('mousemove', function (e) { if (down) strip.scrollLeft = sl - (e.pageX - sx); });
+    }
 
     if (API_BASE) {
       fetchLive();

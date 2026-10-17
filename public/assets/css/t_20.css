@@ -402,8 +402,8 @@
 
 .ipl-model {
   background: var(--ipl-navy);
-  border-radius: 22px;
-  padding: 1.25rem 1.5rem 1.5rem;
+  border-radius: 16px;
+  padding: .75rem 1rem 1rem;
   color: #fff;
   box-shadow: 0 22px 50px rgba(14, 22, 38, .22);
 }
@@ -414,7 +414,7 @@
   align-items: flex-end;
   justify-content: space-between;
   gap: 1rem;
-  margin-bottom: .9rem;
+  margin-bottom: .5rem;
 }
 
 .ipl-model-head h2 {
@@ -459,7 +459,7 @@
 }
 
 .ipl-panel {
-  min-height: 14rem;
+  min-height: 0; /* pehle 14rem tha, yahi box bada kar raha tha */
 }
 
 .ipl-pane {
@@ -488,14 +488,14 @@
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: .75rem;
-  margin: .75rem 0 .9rem;
+  margin: .4rem 0 0;
 }
 
 .ipl-kpi {
   background: var(--ipl-navy-2);
   border: 1px solid var(--ipl-line);
   border-radius: 14px;
-  padding: .6rem 1rem;
+  padding: .4rem .8rem;
 }
 
 .ipl-kpi .l {
@@ -504,7 +504,7 @@
 }
 
 .ipl-kpi .v {
-  font-size: 1.6rem;
+  font-size: 1.3rem;
   font-weight: 800;
   line-height: 1.2;
 }
@@ -529,6 +529,11 @@
 .ipl-kpi .n {
   color: var(--ipl-muted);
   font-size: .72rem;
+}
+
+/* Left box: KPIs ek ke neeche ek */
+.ipl-model .ipl-kpis {
+  grid-template-columns: 1fr;
 }
 
 .inplay-grid {
@@ -619,6 +624,26 @@
 .ipl-win .a { background: var(--ipl-mint); color: #07281d; }
 .ipl-win .b { background: #3a4a68; color: #fff; justify-content: flex-end; }
 
+/* ---------- Over-by-Over Log (right side, 5 rows visible, then scroll) ---------- */
+.ipl-log-table th,
+.ipl-log-table td {
+  height: 40px;               /* row height fixed: max-height ke saath same rakhna */
+  padding: 0 .9rem;
+  vertical-align: middle;
+}
+
+.ipl-log-scroll {
+  max-height: calc(40px * 6); /* 1 header + 5 rows */
+  overflow-y: auto;
+}
+
+.ipl-log-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: #212529;
+}
+
 /* Demo Bar */
 .ipl-demo {
   display: flex;
@@ -668,3 +693,162 @@
   .ipl-status.is-live::before, .ipl-bat { animation: none; }
   .ipl-win div, .ipl-sw .bar i { transition: none; }
 }
+
+/* ---------- COMPACT LIVE STRIP (blue area chhota, taaki neeche ka log box 5 overs tak screen par aaye) ---------- */
+.ipl-hero { padding-top: 5rem; padding-bottom: .75rem; }
+.ipl-topbar { margin-bottom: .45rem; }
+.ipl-score-card { padding: .6rem .9rem; border-radius: 16px; }
+
+.ipl-team { padding: .3rem .8rem; gap: .7rem; border-radius: 12px; }
+.ipl-team.mt-3 { margin-top: .4rem !important; }
+.ipl-badge { width: 34px; height: 34px; font-size: .68rem; }
+.ipl-team .nm { font-size: 1rem; }
+.ipl-team .nm small { font-size: .68rem; margin-top: 0; }
+.ipl-team .sc { font-size: 1.3rem; }
+.ipl-team .sc small { font-size: .68rem; }
+
+.ipl-line { font-size: 1rem; margin: 0 0 .3rem; }
+.ipl-chip { padding: .25rem .6rem; font-size: .76rem; }
+
+.ipl-ovwrap { margin-top: .5rem; }
+.ipl-over { padding: .25rem .2rem; font-size: .92rem; }
+.ipl-ovdetail { margin-top: .4rem; padding: .4rem .7rem; }
+.ipl-ovdetail .top { margin-bottom: .3rem; }
+.ipl-ball { min-width: 1.7rem; height: 1.7rem; font-size: .74rem; }
+
+.ipl-model-sec { padding-top: .75rem; padding-bottom: 1.5rem; }
+
+/* ---------- Team row: Name / 95-3 10.0 (no CRR, no last-ball run) ---------- */
+.ipl-sline { display: flex; align-items: baseline; gap: .5rem; margin-top: .05rem; }
+.ipl-sline b { color: var(--ipl-mint); font-size: 1.25rem; font-weight: 800; line-height: 1.1; }
+.ipl-sline span { color: var(--ipl-muted); font-size: .9rem; font-weight: 500; }
+
+/* ---------- Ball-by-ball overs strip (Over 38 (1)(2)(0)(1)(1)(1) = 6 | Over 39 ...) ---------- */
+.ipl-ovwrap { display: block; }
+
+.ipl-ovstrip {
+  display: flex;
+  align-items: center;
+  overflow-x: auto;
+  scrollbar-width: none;
+  scroll-snap-type: x proximity;
+  padding: .45rem 0;
+  border-top: 1px solid var(--ipl-line);
+  border-bottom: 1px solid var(--ipl-line);
+}
+.ipl-ovstrip::-webkit-scrollbar { display: none; }
+
+.ipl-ovgrp {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: .35rem;
+  padding: 0 .9rem;
+  border-left: 1px solid var(--ipl-line);
+  scroll-snap-align: end;
+  white-space: nowrap;
+}
+.ipl-ovgrp:first-child { border-left: 0; padding-left: .2rem; }
+
+.ipl-ovlbl { color: #fff; font-size: .88rem; margin-right: .15rem; }
+.ipl-ovtot { color: var(--ipl-muted); font-size: .85rem; margin-left: .15rem; }
+
+/* controls: strip ke neeche, right side */
+.ipl-ovctrl { display: flex; justify-content: flex-end; gap: .4rem; margin-top: .4rem; }
+.ipl-ovctrl .ipl-ovnav { width: 2.2rem; height: 1.6rem; font-size: 1.2rem; display: grid; place-items: center; padding: 0; }
+
+/* ---------- SKETCH LAYOUT: left team | center info | right team (mirror), no boxes ---------- */
+.ipl-side { color: #fff; }
+.ipl-shead { display: flex; align-items: center; gap: .7rem; }
+.ipl-sname { min-width: 0; }
+.ipl-side .nm { font-weight: 700; font-size: 1.05rem; line-height: 1.15; text-transform: uppercase; letter-spacing: .02em; }
+.ipl-side .ipl-badge { width: 38px; height: 38px; font-size: .7rem; }
+.ipl-sdetail {
+  margin-top: .35rem;
+  color: var(--ipl-muted);
+  font-size: .85rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: .35rem;
+}
+.ipl-sdetail .ipl-bt { white-space: nowrap; color: #dbe3f0; }
+.ipl-sdetail .ipl-bt b { color: #fff; }
+.ipl-sdetail i { font-style: normal; color: var(--ipl-muted); font-size: .75rem; }
+
+/* right side mirror */
+.ipl-side.is-right .ipl-shead { flex-direction: row-reverse; text-align: right; }
+.ipl-side.is-right .ipl-sline { justify-content: flex-end; }
+.ipl-side.is-right .ipl-sdetail { justify-content: flex-end; text-align: right; }
+
+/* center info */
+.ipl-center { text-align: center; }
+.ipl-center .ipl-line:empty { display: none; }
+.ipl-center .ipl-chips { justify-content: center; }
+@media (max-width: 991px) {
+  .ipl-side.is-right .ipl-shead { flex-direction: row; text-align: left; }
+  .ipl-side.is-right .ipl-sline, .ipl-side.is-right .ipl-sdetail { justify-content: flex-start; text-align: left; }
+  .ipl-center { text-align: left; }
+  .ipl-center .ipl-chips { justify-content: flex-start; }
+}
+
+/* ---------- Inplay Model box: [101/3  11/20]  [173  Projected] ---------- */
+.ipl-model .ipl-kpis { grid-template-columns: 1fr 1fr; margin: .4rem 0 0; }
+.ipl-kpi { text-align: left; padding: .45rem .8rem; }
+.ipl-kpi .v { font-size: 1.5rem; }
+.ipl-kpi .n { font-size: .78rem; }
+
+/* ---------- NO BOXES + BIGGER FONTS ---------- */
+/* live strip: koi box / boundary nahi */
+.ipl-score-card { background: none; border: 0; box-shadow: none; border-radius: 0; padding: 0; }
+
+/* team rows: bade fonts */
+.ipl-side .ipl-badge { width: 52px; height: 52px; font-size: .85rem; }
+.ipl-side .nm { font-size: 1.5rem; }
+.ipl-sline b { font-size: 2.1rem; }
+.ipl-sline span { font-size: 1.15rem; }
+.ipl-sline { gap: .6rem; }
+
+/* batters ek ke neeche ek, bowler ek line */
+.ipl-sdetail { flex-direction: column; align-items: flex-start; gap: .15rem; margin-top: .5rem; font-size: 1.15rem; }
+.ipl-sdetail i { font-size: .9rem; }
+.ipl-side.is-right .ipl-sdetail { align-items: flex-end; }
+@media (max-width: 991px) { .ipl-side.is-right .ipl-sdetail { align-items: flex-start; } }
+
+/* overs strip: boundary nahi, sirf | divider; drag se scroll */
+.ipl-ovstrip { border: 0; padding: .6rem 0; cursor: grab; scroll-snap-type: none; user-select: none; }
+.ipl-ovstrip.is-drag { cursor: grabbing; }
+.ipl-ovlbl { font-size: 1.1rem; }
+.ipl-ovtot { font-size: 1.05rem; }
+.ipl-ovstrip .ipl-ball { min-width: 2.3rem; height: 2.3rem; font-size: .95rem; }
+.ipl-ovstrip .ipl-ball.x { font-size: .8rem; }
+.ipl-ovgrp { gap: .45rem; padding: 0 1.1rem; }
+
+/* Live Projection box: title + do bade numbers, koi inner box nahi */
+.ipl-model-title { color: #fff; font-size: 1.6rem; font-weight: 700; margin: 0; }
+.ipl-model .ipl-kpis { gap: 1rem; margin-top: .6rem; }
+.ipl-kpi { background: none; border: 0; border-radius: 0; padding: 0; }
+.ipl-kpi .v { font-size: 3rem; line-height: 1.05; }
+.ipl-kpi .n { font-size: 1.15rem; margin-top: .2rem; }
+
+/* ---------- Match End Prediction Summary (apni styling, bootstrap badges nahi) ---------- */
+.ipl-sum { margin-top: 1rem; padding: 1rem 1.25rem 1.1rem; border-radius: 16px; background: var(--ipl-navy); color: #fff; box-shadow: 0 22px 50px rgba(14, 22, 38, .22); }
+.ipl-sum-title { color: #fff; font-size: 1.4rem; font-weight: 700; margin: 0; }
+.ipl-sum-sub { color: var(--ipl-muted); font-size: .9rem; margin: .15rem 0 .8rem; }
+.ipl-sum-scroll { overflow-x: auto; }
+.ipl-sum-table { width: 100%; border-collapse: collapse; min-width: 720px; }
+.ipl-sum-table th { color: var(--ipl-muted); font-size: .85rem; font-weight: 600; text-align: left; padding: .5rem .9rem; border-bottom: 1px solid var(--ipl-line); white-space: nowrap; }
+.ipl-sum-table td { color: #fff; font-size: 1.2rem; font-weight: 700; padding: .8rem .9rem; white-space: nowrap; }
+.ipl-sum-table td.is-proj { color: var(--ipl-amber); }
+.ipl-sum-table td.is-actual { color: var(--ipl-mint); }
+.ipl-sum-table td#summaryError { color: var(--ipl-muted); font-weight: 600; font-size: 1.05rem; }
+
+/* ---------- Final tweaks ---------- */
+/* venue line ke baad thoda gap */
+.ipl-topbar { margin-bottom: .8rem; }
+
+/* Live Projection box: Projected, Current Score ke neeche; box ki height right wale box ke barabar */
+.ipl-model { height: 100%; display: flex; flex-direction: column; }
+.ipl-model .ipl-panel { flex: 1; display: flex; }
+.ipl-model .ipl-pane.active { flex: 1; display: flex; }
+.ipl-model .ipl-kpis { grid-template-columns: 1fr; align-content: space-evenly; flex: 1; margin-top: .4rem; }
