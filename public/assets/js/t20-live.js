@@ -5,7 +5,7 @@
 
   /* ---------- Configuration ---------- */
   // >>> APNA RENDER URL YAHAN DAALO (bina trailing slash ke). Khaali = sirf demo mode.
-  var API_BASE = 'https://YOUR-SERVICE.onrender.com';
+  var API_BASE = 'https://t20-live-score-api.onrender.com';
   var DEMO = /[?&]demo=1/.test(location.search);   // page?demo=1 -> demo match
   var POLL_MS = 60000;
   var DEMO_STEP_MS = 1500;
