@@ -4,7 +4,7 @@
   'use strict';
 
   /* ---------- Configuration ---------- */
-  // >>> APNA RENDER URL YAHAN DAALO (bina trailing slash ke). Khaali = sirf demo mode.
+  
   var API_BASE = 'https://t20-live-score-api.onrender.com';
   var DEMO = /[?&]demo=1/.test(location.search);   // page?demo=1 -> demo match
   var POLL_MS = 60000;
@@ -20,7 +20,7 @@
   function sum(a) { return a.reduce(function (x, y) { return x + y; }, 0); }
   function cumTo(a, n) { return sum(a.slice(0, n)); }
 
-  /* Missing fields se crash roko */
+  
   function normalize(s) {
     s.teams = s.teams || { a: { code: 'A', name: 'Team A' }, b: { code: 'B', name: 'Team B' } };
     s.model1 = s.model1 || { total: 0 };
@@ -29,7 +29,7 @@
     return s;
   }
 
-  /* Team Badge Colors */
+  
   var TEAM_COL = {
     IND: ['#0055a5', '#fff'], AUS: ['#ffcd00', '#000'], ENG: ['#d4202a', '#fff'],
     SA: ['#007a4d', '#fff'], NZ: ['#000000', '#fff'], PAK: ['#006633', '#fff'],
