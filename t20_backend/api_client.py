@@ -1,4 +1,4 @@
-"""Cricket Live Line API client (Latiyal Infotech).
+"""Cricket Live Line API client ).
 
 Interface used by the poller (everything else in the backend is API-agnostic):
     upcoming()          -> [{"match_id", "start": aware datetime, "team_a": code, "team_b": code}]
@@ -161,6 +161,8 @@ def parse_info(js):
 # data = {"1": [over, over, ...newest first], "2": [...], ...}   (a T20 has "1" and "2")
 # over = {"team": {"score": "390-10" (cumulative AFTER this over), "team": "AUS", "bowler", "over": 138, "runs": 0, "wkts": 1},
 #         "overs": ["W", "0"]}     <- ball tokens of that over. Wides / no-balls are NOT legal deliveries.
+# NOTE: the ball tokens inside "overs" also come newest-ball-first, so they are reversed
+#       (reversed(tk)) below to show ball 1 on the left and the last ball on the right.
 _NOT_LEGAL = re.compile(r"(WB|WD|NB)$", re.I)
 
 
@@ -209,10 +211,10 @@ def _innings(items, force_finished=False):
         if o == last and not complete:
             if finished:                                         # all out / target chased in the middle of an over
                 entries.append((6 * (o - 1) + max(1, nlegal), r, w))
-                balls.append([_ball_token(x) for x in tk])
+                balls.append([_ball_token(x) for x in reversed(tk)])   # FIX: ball 1 first (left -> right)
             continue                                             # otherwise: over in progress, not shown yet
         entries.append((6 * o, r, w))
-        balls.append([_ball_token(x) for x in tk])
+        balls.append([_ball_token(x) for x in reversed(tk)])           # FIX: ball 1 first (left -> right)
     return {"started": True, "finished": finished, "entries": entries, "balls": balls, "last_score": (lr, lw)}
 
 
