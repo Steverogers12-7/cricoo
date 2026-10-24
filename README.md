@@ -27,22 +27,20 @@ The platform currently focuses on two products:
 - **IPL platform** with all three models.
 - **T20 platform** for men's T20 internationals, with the in-play first-innings projection.
 
-> The models are under active development. They will keep getting better as more data, features and validation are added (see the [Roadmap](#roadmap)).
-
 ---
 
-## Screenshots
+## live site
 
 Live T20 page during a T20I at Hagley Oval, Christchurch (New Zealand batting first).
 
 <table>
   <tr>
-    <td align="center"><img src="docs/screenshots/t20-live-over4.png" alt="Cricoo T20 live page after over 4" /><br /><sub><b>Over 4:</b> 46/0, projected 196</sub></td>
-    <td align="center"><img src="docs/screenshots/t20-live-over5.png" alt="Cricoo T20 live page after over 5" /><br /><sub><b>Over 5:</b> a wicket falls and the projection drops to 181</sub></td>
+    <td align="center"><img src="public/assets/img/t20-live-over4.png" alt="Cricoo T20 live page after over 4" /><br /><sub><b>Over 4:</b> 46/0, projected 196</sub></td>
+    <td align="center"><img src="public/assets/img/t20-live-over5.png" alt="Cricoo T20 live page after over 5" /><br /><sub><b>Over 5:</b> a wicket falls and the projection drops to 181</sub></td>
   </tr>
   <tr>
-    <td align="center"><img src="docs/screenshots/t20-live-over10.png" alt="Cricoo T20 live page after over 10" /><br /><sub><b>Over 10:</b> 98/2, projected 197</sub></td>
-    <td align="center"><img src="docs/screenshots/t20-innings-break.png" alt="Cricoo T20 page at the innings break" /><br /><sub><b>Innings break:</b> 225/4, target set at 226</sub></td>
+    <td align="center"><img src="public/assets/img/t20-live-over10.png" alt="Cricoo T20 live page after over 10" /><br /><sub><b>Over 10:</b> 98/2, projected 197</sub></td>
+    <td align="center"><img src="public/assets/img/t20-innings-break.png" alt="Cricoo T20 page at the innings break" /><br /><sub><b>Innings break:</b> 225/4, target set at 226</sub></td>
   </tr>
 </table>
 
@@ -111,11 +109,11 @@ cricoo/
 ├── public/                  # Live site (index, ipl.html, t_20.html, blogs)
 │   └── assets/
 │       ├── css/             # ipl.css, t_20.css, theme files
+│       ├── img/             # logos, cards and the README screenshots
 │       └── js/              # ipl-live.js, t20-live.js
 ├── src/                     # Pug / SCSS / JS sources for the site
 ├── cricoo_backend/          # IPL backend (Flask app, 3 model bundles, poller, tests)
 ├── t20_backend/             # T20 backend (Flask app, XGBoost model, bands, poller, tests)
-├── docs/screenshots/        # Images used in this README
 ├── gulp/ , gulpfile.js      # Site build tasks
 └── README.md
 ```
@@ -180,7 +178,7 @@ npm run build      # production build
 | `SERIES_FILTER`, `EXCLUDE_SERIES`, `MATCH_TYPE` | Which matches to follow | all men's T20 |
 | `FORCE_MATCH_ID`, `FORCE_START`, `FORCE_TEAMS` | Manually pin a match | unset |
 
-Remember to clear the `FORCE_*` variables after a pinned match, or the poller will keep following it.
+
 
 ---
 
