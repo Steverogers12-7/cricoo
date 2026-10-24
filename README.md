@@ -194,6 +194,7 @@ npm run build      # production build
 
 ## Author
 
-**Ashutosh Kumar**
-Roll No. 2024UCM2304
-B.Tech, Netaji Subhas University of Technology (NSUT), Delhi
+**Ashutosh Kumar**</br>
+2024UCM2304</br>
+B.Tech (Mathematics & computing)</br>
+Netaji Subhas University of Technology (NSUT), Delhi
